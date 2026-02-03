@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, X, Send, Bot, User, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Bot, User, Loader2, Sparkles, FileText, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -15,12 +16,19 @@ type Message = {
   content: string;
 };
 
+const quickActions = [
+  { label: "My processes", prompt: "What SOPs and recordings do I have?", icon: FileText },
+  { label: "Suggestions", prompt: "What improvements do you suggest for my workflows?", icon: Sparkles },
+  { label: "Insights", prompt: "Analyze my business processes and identify patterns", icon: TrendingUp },
+];
+
 export function AIAssistant() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm your Opstrace Assistant. Ask me anything about creating SOPs, recording workflows, or optimizing your operations. How can I help?",
+      content: "Hi! I'm your Opstrace Assistant. I can help with SOPs, workflows, and now I understand your specific processes. Ask me about your workflows or try a quick action below!",
     },
   ]);
   const [input, setInput] = useState("");
@@ -33,12 +41,13 @@ export function AIAssistant() {
     }
   }, [messages]);
 
-  const sendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
+  const sendMessage = useCallback(async (customMessage?: string) => {
+    const messageText = customMessage || input.trim();
+    if (!messageText || isLoading) return;
 
-    const userMessage: Message = { role: "user", content: input.trim() };
+    const userMessage: Message = { role: "user", content: messageText };
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (!customMessage) setInput("");
     setIsLoading(true);
 
     let assistantContent = "";
@@ -65,6 +74,7 @@ export function AIAssistant() {
         },
         body: JSON.stringify({
           messages: [...messages.slice(1), userMessage], // Skip the initial greeting
+          user_id: user?.id,
         }),
       });
 
@@ -115,7 +125,7 @@ export function AIAssistant() {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, messages]);
+  }, [input, isLoading, messages, user?.id]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -140,7 +150,7 @@ export function AIAssistant() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <Card className="fixed bottom-6 right-6 z-50 flex h-[500px] w-[380px] flex-col shadow-2xl">
+        <Card className="fixed bottom-6 right-6 z-50 flex h-[550px] w-[400px] flex-col shadow-2xl">
           <CardHeader className="flex flex-row items-center justify-between border-b px-4 py-3">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Bot className="h-5 w-5 text-primary" />
@@ -189,6 +199,25 @@ export function AIAssistant() {
                   )}
                 </div>
               ))}
+              
+              {/* Quick Actions - show only at start */}
+              {messages.length === 1 && !isLoading && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {quickActions.map((action) => (
+                    <Button
+                      key={action.label}
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => sendMessage(action.prompt)}
+                    >
+                      <action.icon className="h-3 w-3" />
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -209,11 +238,11 @@ export function AIAssistant() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about workflows, SOPs..."
+                placeholder="Ask about your workflows..."
                 disabled={isLoading}
                 className="flex-1"
               />
-              <Button onClick={sendMessage} disabled={!input.trim() || isLoading} size="icon">
+              <Button onClick={() => sendMessage()} disabled={!input.trim() || isLoading} size="icon">
                 <Send className="h-4 w-4" />
               </Button>
             </div>

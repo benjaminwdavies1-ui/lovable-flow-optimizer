@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Recordings from "./pages/Recordings";
 import SOPs from "./pages/SOPs";
 import Settings from "./pages/Settings";
+import Insights from "./pages/Insights";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,14 @@ const App = () => (
               element={
                 <AuthGuard>
                   <Settings />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/insights"
+              element={
+                <AuthGuard>
+                  <Insights />
                 </AuthGuard>
               }
             />

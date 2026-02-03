@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_recommendations: {
+        Row: {
+          affected_processes: string[] | null
+          created_at: string
+          description: string
+          id: string
+          recommendation_type: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          affected_processes?: string[] | null
+          created_at?: string
+          description: string
+          id?: string
+          recommendation_type: string
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          affected_processes?: string[] | null
+          created_at?: string
+          description?: string
+          id?: string
+          recommendation_type?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      business_context: {
+        Row: {
+          confidence_score: number | null
+          content: string
+          context_type: string
+          created_at: string
+          id: string
+          source_ids: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          content: string
+          context_type: string
+          created_at?: string
+          id?: string
+          source_ids?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          content?: string
+          context_type?: string
+          created_at?: string
+          id?: string
+          source_ids?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

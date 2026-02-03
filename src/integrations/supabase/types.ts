@@ -14,7 +14,237 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      recordings: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          status: string
+          step_count: number | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          step_count?: number | null
+          title?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          step_count?: number | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recordings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_steps: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          has_warning: boolean | null
+          id: string
+          is_redacted: boolean | null
+          order_number: number
+          screenshot_url: string | null
+          show_screenshot: boolean | null
+          sop_id: string
+          title: string | null
+          warning_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          has_warning?: boolean | null
+          id?: string
+          is_redacted?: boolean | null
+          order_number: number
+          screenshot_url?: string | null
+          show_screenshot?: boolean | null
+          sop_id: string
+          title?: string | null
+          warning_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          has_warning?: boolean | null
+          id?: string
+          is_redacted?: boolean | null
+          order_number?: number
+          screenshot_url?: string | null
+          show_screenshot?: boolean | null
+          sop_id?: string
+          title?: string | null
+          warning_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_steps_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sops: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          published_at: string | null
+          recording_id: string | null
+          status: string
+          title: string
+          updated_at: string | null
+          user_id: string
+          version: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          published_at?: string | null
+          recording_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+          user_id: string
+          version?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          published_at?: string | null
+          recording_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sops_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sops_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      steps: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          element_selector: string | null
+          has_warning: boolean | null
+          id: string
+          instruction_text: string | null
+          is_redacted: boolean | null
+          order_number: number
+          recording_id: string
+          screenshot_url: string | null
+          timestamp: string | null
+          url: string | null
+          warning_text: string | null
+        }
+        Insert: {
+          action_type?: string
+          created_at?: string | null
+          element_selector?: string | null
+          has_warning?: boolean | null
+          id?: string
+          instruction_text?: string | null
+          is_redacted?: boolean | null
+          order_number: number
+          recording_id: string
+          screenshot_url?: string | null
+          timestamp?: string | null
+          url?: string | null
+          warning_text?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          element_selector?: string | null
+          has_warning?: boolean | null
+          id?: string
+          instruction_text?: string | null
+          is_redacted?: boolean | null
+          order_number?: number
+          recording_id?: string
+          screenshot_url?: string | null
+          timestamp?: string | null
+          url?: string | null
+          warning_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "steps_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

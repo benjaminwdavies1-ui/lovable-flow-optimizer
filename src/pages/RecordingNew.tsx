@@ -14,7 +14,7 @@ import { StepTypeButtons, ActionType, actionTypeConfig } from "@/components/reco
 
 export default function RecordingNew() {
   const navigate = useNavigate();
-  const { captureScreen, isCapturing } = useScreenCapture();
+  const { captureScreen, isCapturing, generateInstruction } = useScreenCapture();
   const [isRecording, setIsRecording] = useState(false);
   const [title, setTitle] = useState("Untitled Recording");
   const [steps, setSteps] = useState<RecordingStepData[]>([]);
@@ -37,14 +37,17 @@ export default function RecordingNew() {
   }, [steps.length]);
 
   const addStep = useCallback(async (actionType: ActionType = "custom") => {
-    // Capture screenshot before adding step
+    // Generate instruction from last clicked element
+    const instruction = generateInstruction(actionType);
+    
+    // Capture screenshot
     const screenshotUrl = await captureScreen();
     
     const newStep: RecordingStepData = {
       id: `step-${Date.now()}`,
       orderNumber: steps.length + 1,
       actionType,
-      instructionText: "",
+      instructionText: instruction,
       screenshotUrl: screenshotUrl || undefined,
       hasWarning: false,
       isRedacted: false,
@@ -57,7 +60,7 @@ export default function RecordingNew() {
     } else {
       toast.success("Step added.");
     }
-  }, [steps.length, captureScreen]);
+  }, [steps.length, captureScreen, generateInstruction]);
 
   const updateStep = useCallback((id: string, updates: Partial<RecordingStepData>) => {
     setSteps((prev) =>

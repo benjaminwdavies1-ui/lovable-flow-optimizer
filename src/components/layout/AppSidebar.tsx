@@ -52,11 +52,10 @@ const futureNavItems = [
     disabled: false,
   },
   {
-    title: "Automation",
-    url: "/automation",
+    title: "Automations",
+    url: "/automations",
     icon: Zap,
-    disabled: true,
-    badge: "Soon",
+    disabled: false,
   },
 ];
 
@@ -138,11 +137,6 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                      {item.badge && (
-                        <span className="ml-auto rounded-full bg-sidebar-accent px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted">
-                          {item.badge}
-                        </span>
-                      )}
                     </SidebarMenuButton>
                   ) : (
                     <SidebarMenuButton

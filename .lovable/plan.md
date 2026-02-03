@@ -1,237 +1,362 @@
 
 
-# Opstrace - Operations Intelligence Platform MVP
+# Phase 2: Authentication & Database Foundation
 
-## Product Vision
-A web-based SaaS platform that helps operations teams automatically generate SOPs from real work, understand time spent across systems, and identify automation opportunities.
-
----
-
-## Information Architecture
-
-### Primary Navigation
-- **Dashboard** - Overview of recent recordings, SOPs, and quick actions
-- **Recordings** - List of all recording sessions with status
-- **SOPs** - Library of generated Standard Operating Procedures
-- **Settings** - User profile, team management, export preferences
-
-### Future Navigation Stubs (UI only)
-- **Insights** - Operations activity analytics (placeholder)
-- **Automation** - Automation opportunities (placeholder)
+This phase establishes the secure backend infrastructure required before building the recording and SOP editing features.
 
 ---
 
-## Core Pages & Layouts
+## Overview
 
-### 1. Dashboard
-- Welcome message with user context
-- Quick "Start Recording" prominent CTA
-- Recent recordings (last 5)
-- Recent SOPs (last 5)
-- Activity summary cards (total recordings, SOPs created, time documented)
+We need to set up two critical pieces:
+1. **User Authentication** - Email/password login and signup so users can securely access their data
+2. **Database Schema** - Tables for Profiles, Recordings, Steps, SOPs, and SOP_Steps with proper security policies
 
-### 2. Recordings List
-- Table/card view of all recordings
-- Status indicators (In Progress, Completed, Converted to SOP)
-- Duration, date, step count
-- Actions: View, Convert to SOP, Delete
-
-### 3. Recording Session (Active State)
-- Floating control bar with:
-  - Recording timer
-  - Step counter
-  - Pause/Resume button
-  - Stop & Save button
-- Live step feed showing captured interactions
-- Simulated capture (since browser extension is out of scope, we'll provide manual step entry + a demo mode)
-
-### 4. SOP Editor
-- Left sidebar: Step list with drag-to-reorder
-- Main content: Selected step detail
-  - Step number (auto-generated)
-  - Title (editable)
-  - Description (rich text)
-  - Screenshot area (placeholder with upload option)
-  - Timestamp display
-  - Warning/Note toggle
-  - Sensitive info redaction checkbox
-- Right panel: SOP metadata (title, description, tags, version)
-- Toolbar: Save, Preview, Export options
-
-### 5. SOP Viewer
-- Clean, professional documentation view
-- Print-optimized layout
-- Step-by-step with screenshots
-- Export buttons (Web link, PDF download)
-
-### 6. Settings
-- Profile management
-- Team invitations (future)
-- Export preferences
-- Browser extension download link (placeholder)
+This ensures all subsequent features (recording sessions, SOP editing, etc.) can properly store and retrieve user-specific data.
 
 ---
 
-## Data Models
+## What Will Be Built
 
-### User
-- id, email, name, avatar, created_at
+### 1. Authentication System
+- New `/auth` page with login and signup forms
+- Protected routes - redirect unauthenticated users to login
+- Logout functionality in the sidebar
+- Session management with automatic refresh
 
-### Recording
-- id, user_id, title, status (in_progress | completed | converted)
-- started_at, ended_at, duration_seconds
-- step_count, created_at
+### 2. Database Tables
 
-### Step
-- id, recording_id, order_number
-- action_type (click | navigation | form_submit | input | custom)
-- instruction_text (auto-generated or edited)
-- screenshot_url (nullable)
-- url, element_selector, timestamp
-- is_redacted, has_warning, warning_text
-- created_at
+**profiles** - User profile information
+- `id` (UUID, links to auth.users)
+- `email`, `full_name`, `avatar_url`
+- `created_at`, `updated_at`
 
-### SOP
-- id, user_id, recording_id (nullable - can be standalone)
-- title, description, version
-- status (draft | published)
-- steps (embedded or linked)
-- created_at, updated_at, published_at
+**recordings** - Captured workflow sessions
+- `id`, `user_id`, `title`
+- `status` (in_progress, completed, converted)
+- `started_at`, `ended_at`, `duration_seconds`
+- `step_count`, `created_at`
 
-### SOP_Step (denormalized for editing)
-- id, sop_id, order_number
-- title, description, screenshot_url
-- has_warning, warning_text, is_redacted
-- show_screenshot
+**steps** - Individual actions within a recording
+- `id`, `recording_id`, `order_number`
+- `action_type` (click, navigation, form_submit, input, custom)
+- `instruction_text`, `screenshot_url`
+- `url`, `element_selector`, `timestamp`
+- `is_redacted`, `has_warning`, `warning_text`
 
----
+**sops** - Standard Operating Procedures
+- `id`, `user_id`, `recording_id` (optional source)
+- `title`, `description`, `version`
+- `status` (draft, published)
+- `created_at`, `updated_at`, `published_at`
 
-## Core User Flows
+**sop_steps** - Denormalized steps for SOP editing
+- `id`, `sop_id`, `order_number`
+- `title`, `description`, `screenshot_url`
+- `has_warning`, `warning_text`, `is_redacted`
+- `show_screenshot`
 
-### Flow 1: Create SOP from Recording
-1. User clicks "Start Recording" from Dashboard
-2. Recording session begins with floating control bar
-3. User performs work (simulated via manual entry in MVP)
-4. User clicks "Stop Recording"
-5. Recording saved → User prompted to "Convert to SOP" or "Save for Later"
-6. If converting: Redirected to SOP Editor with pre-populated steps
-7. User edits, reorders, adds notes
-8. User saves and optionally publishes
-9. SOP available in library
-
-### Flow 2: Manual SOP Creation
-1. User navigates to SOPs → "Create New"
-2. Opens blank SOP Editor
-3. User manually adds steps with descriptions and screenshots
-4. User saves and publishes
-
-### Flow 3: Export SOP
-1. User opens SOP from library
-2. Clicks "Export"
-3. Chooses format: Web Link (shareable URL) or PDF
-4. Downloads or copies link
+### 3. Security Policies
+Each table will have Row-Level Security (RLS) policies ensuring:
+- Users can only see their own recordings, steps, and SOPs
+- Users can only modify their own data
+- Profile creation happens automatically on signup
 
 ---
 
-## Component Structure
+## Implementation Steps
 
-### Layout Components
-- `AppLayout` - Main app shell with sidebar navigation
-- `DashboardLayout` - Dashboard-specific grid layout
-- `EditorLayout` - Three-panel layout for SOP editing
+### Step 1: Create Database Schema
+Single migration with all tables, relationships, and RLS policies.
 
-### Feature Components
-- `RecordingControls` - Start/Stop/Pause floating bar
-- `StepCapture` - Individual step display during recording
-- `StepEditor` - Editable step card with all fields
-- `StepList` - Draggable list of steps
-- `SOPViewer` - Read-only rendered SOP
-- `ExportDialog` - Export format selection modal
+### Step 2: Create Authentication Context
+A React context provider that manages:
+- Current user/session state
+- Login, signup, logout functions
+- Loading states
+- Automatic session refresh
 
-### UI Components
-- `StatusBadge` - Recording/SOP status indicators
-- `TimeDisplay` - Duration formatting
-- `ScreenshotPlaceholder` - Image upload/placeholder
-- `RedactionOverlay` - Blur/hide sensitive areas
+### Step 3: Build Auth Page
+A clean, professional login/signup page at `/auth` with:
+- Toggle between login and signup modes
+- Email and password validation
+- Error handling with friendly messages
+- Redirect to dashboard on success
 
----
+### Step 4: Protect Application Routes
+Wrap the app with an auth guard that:
+- Shows loading state while checking auth
+- Redirects to `/auth` if not logged in
+- Allows access to protected pages if authenticated
 
-## Design System
-
-### Visual Style
-- Clean, professional, operations-focused
-- Neutral color palette (slate/gray base)
-- Accent color for primary actions (blue)
-- Success/warning/error states
-- Generous whitespace
-- Clear typography hierarchy
-
-### Tone
-- Professional, not playful
-- Action-oriented language
-- Avoid creator/consumer terminology
-- Use operations vocabulary (procedure, workflow, process, system)
+### Step 5: Update Sidebar
+Add user profile display and logout button to the sidebar.
 
 ---
 
-## Backend Requirements (Supabase)
+## Technical Details
 
-### Authentication
-- Email/password signup and login
-- Protected routes for all app pages
+### Database Migration SQL
 
-### Database
-- Tables for Users, Recordings, Steps, SOPs, SOP_Steps
-- Row-level security per user
+```text
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
 
-### Storage
-- Screenshot uploads to Supabase Storage
-- PDF generation (future - initially just web view)
+-- Profiles table (linked to auth.users)
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  full_name text,
+  avatar_url text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Recordings table
+create table public.recordings (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null default 'Untitled Recording',
+  status text not null default 'in_progress' 
+    check (status in ('in_progress', 'completed', 'converted')),
+  started_at timestamptz default now(),
+  ended_at timestamptz,
+  duration_seconds integer default 0,
+  step_count integer default 0,
+  created_at timestamptz default now()
+);
+
+-- Steps table
+create table public.steps (
+  id uuid primary key default uuid_generate_v4(),
+  recording_id uuid references public.recordings(id) on delete cascade not null,
+  order_number integer not null,
+  action_type text not null default 'custom'
+    check (action_type in ('click', 'navigation', 'form_submit', 'input', 'custom')),
+  instruction_text text,
+  screenshot_url text,
+  url text,
+  element_selector text,
+  timestamp timestamptz default now(),
+  is_redacted boolean default false,
+  has_warning boolean default false,
+  warning_text text,
+  created_at timestamptz default now()
+);
+
+-- SOPs table
+create table public.sops (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  recording_id uuid references public.recordings(id) on delete set null,
+  title text not null default 'Untitled SOP',
+  description text,
+  version integer default 1,
+  status text not null default 'draft'
+    check (status in ('draft', 'published')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  published_at timestamptz
+);
+
+-- SOP Steps table (denormalized for editing)
+create table public.sop_steps (
+  id uuid primary key default uuid_generate_v4(),
+  sop_id uuid references public.sops(id) on delete cascade not null,
+  order_number integer not null,
+  title text,
+  description text,
+  screenshot_url text,
+  has_warning boolean default false,
+  warning_text text,
+  is_redacted boolean default false,
+  show_screenshot boolean default true,
+  created_at timestamptz default now()
+);
+
+-- Enable RLS on all tables
+alter table public.profiles enable row level security;
+alter table public.recordings enable row level security;
+alter table public.steps enable row level security;
+alter table public.sops enable row level security;
+alter table public.sop_steps enable row level security;
+
+-- Profiles policies
+create policy "Users can view own profile"
+  on public.profiles for select
+  to authenticated
+  using (auth.uid() = id);
+
+create policy "Users can update own profile"
+  on public.profiles for update
+  to authenticated
+  using (auth.uid() = id);
+
+-- Recordings policies
+create policy "Users can view own recordings"
+  on public.recordings for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Users can create recordings"
+  on public.recordings for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+create policy "Users can update own recordings"
+  on public.recordings for update
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Users can delete own recordings"
+  on public.recordings for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- Steps policies (based on recording ownership)
+create policy "Users can view steps of own recordings"
+  on public.steps for select
+  to authenticated
+  using (
+    recording_id in (
+      select id from public.recordings where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can create steps in own recordings"
+  on public.steps for insert
+  to authenticated
+  with check (
+    recording_id in (
+      select id from public.recordings where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update steps in own recordings"
+  on public.steps for update
+  to authenticated
+  using (
+    recording_id in (
+      select id from public.recordings where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can delete steps in own recordings"
+  on public.steps for delete
+  to authenticated
+  using (
+    recording_id in (
+      select id from public.recordings where user_id = auth.uid()
+    )
+  );
+
+-- SOPs policies
+create policy "Users can view own SOPs"
+  on public.sops for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Users can create SOPs"
+  on public.sops for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+create policy "Users can update own SOPs"
+  on public.sops for update
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Users can delete own SOPs"
+  on public.sops for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- SOP Steps policies (based on SOP ownership)
+create policy "Users can view steps of own SOPs"
+  on public.sop_steps for select
+  to authenticated
+  using (
+    sop_id in (
+      select id from public.sops where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can create steps in own SOPs"
+  on public.sop_steps for insert
+  to authenticated
+  with check (
+    sop_id in (
+      select id from public.sops where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update steps in own SOPs"
+  on public.sop_steps for update
+  to authenticated
+  using (
+    sop_id in (
+      select id from public.sops where user_id = auth.uid()
+    )
+  );
+
+create policy "Users can delete steps in own SOPs"
+  on public.sop_steps for delete
+  to authenticated
+  using (
+    sop_id in (
+      select id from public.sops where user_id = auth.uid()
+    )
+  );
+
+-- Trigger to auto-create profile on signup
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, full_name)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+```
+
+### New Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/contexts/AuthContext.tsx` | Auth state management and functions |
+| `src/pages/Auth.tsx` | Login/signup page |
+| `src/components/auth/AuthGuard.tsx` | Route protection wrapper |
+| `src/components/auth/LoginForm.tsx` | Login form component |
+| `src/components/auth/SignupForm.tsx` | Signup form component |
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/App.tsx` | Wrap with AuthProvider, add AuthGuard |
+| `src/components/layout/AppSidebar.tsx` | Add user info and logout button |
 
 ---
 
-## Future-Ready Architecture
+## User Experience
 
-### Placeholder Pages
-- **Insights** page with mock charts showing:
-  - Time spent per application
-  - Daily/weekly activity timeline
-  - Repeated workflow detection
-
-- **Automation** page with mock cards showing:
-  - Detected repetitive tasks
-  - Estimated time savings
-  - Suggested tools
-  - Complexity ratings
-
-These will be UI-only with sample data, structured so real analytics can plug in later.
+1. **New users** visit the app and are redirected to `/auth`
+2. They see a clean signup form, enter email/password, and create an account
+3. After signup, they're automatically logged in and redirected to the dashboard
+4. **Returning users** can log in with their credentials
+5. The sidebar shows their email/name and provides a logout option
+6. All their recordings and SOPs are private and secure
 
 ---
 
-## Implementation Phases
+## After This Phase
 
-### Phase 1: Foundation
-- App layout and navigation
-- Authentication (Supabase)
-- Dashboard with placeholder data
-
-### Phase 2: Recording System
-- Recording list page
-- Manual step entry flow (simulating capture)
-- Recording controls and step display
-
-### Phase 3: SOP Editor
-- Full SOP editing interface
-- Step reordering, editing, notes
-- Screenshot upload support
-
-### Phase 4: SOP Output
-- Clean viewer page
-- Shareable web links
-- PDF export (or print-to-PDF)
-
-### Phase 5: Polish & Stubs
-- Future feature placeholders
-- Settings page
-- Onboarding flow
+With authentication and database in place, we can proceed to:
+- **Phase 3: Recording Session** - Create `/recordings/new` with live step capture
+- **Phase 4: SOP Editor** - Build the full editing interface
+- **Phase 5: SOP Viewer & Export** - Read-only view and PDF export
 

@@ -49,8 +49,7 @@ const futureNavItems = [
     title: "Insights",
     url: "/insights",
     icon: BarChart3,
-    disabled: true,
-    badge: "Soon",
+    disabled: false,
   },
   {
     title: "Automation",
@@ -129,21 +128,39 @@ export function AppSidebar() {
             <SidebarMenu>
               {futureNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    disabled={item.disabled}
-                    className={cn(
-                      "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
-                      "cursor-not-allowed opacity-50"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
-                    {item.badge && (
-                      <span className="ml-auto rounded-full bg-sidebar-accent px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted">
-                        {item.badge}
-                      </span>
-                    )}
-                  </SidebarMenuButton>
+                  {item.disabled ? (
+                    <SidebarMenuButton
+                      disabled
+                      className={cn(
+                        "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                        "cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                      {item.badge && (
+                        <span className="ml-auto rounded-full bg-sidebar-accent px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sidebar-muted">
+                          {item.badge}
+                        </span>
+                      )}
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.url}
+                      className={cn(
+                        "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        location.pathname === item.url
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <Link to={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

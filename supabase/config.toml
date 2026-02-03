@@ -1,1 +1,10 @@
 project_id = "hqbnxpcfxngtdsxfxvck"
+
+[functions.chat]
+verify_jwt = false
+
+[functions.generate-process-map]
+verify_jwt = false
+
+[functions.analyze-business-context]
+verify_jwt = false

@@ -1,74 +1,182 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Video, Square, Save, FileText, Clock } from "lucide-react";
+import { Video, Square, Save, FileText, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useScreenCapture } from "@/hooks/useScreenCapture";
 import { RecordingStep, RecordingStepData } from "@/components/recording/RecordingStep";
 import { StepTypeButtons, ActionType, actionTypeConfig } from "@/components/recording/StepTypeButtons";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  createRecording,
+  updateRecording,
+  createStep,
+  updateStep as updateStepInDb,
+  deleteStep as deleteStepFromDb,
+  uploadScreenshot,
+} from "@/services/recordingService";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Recording = Tables<"recordings">;
 
 export default function RecordingNew() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { captureScreen, isCapturing, generateInstruction } = useScreenCapture();
   const [isRecording, setIsRecording] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState("Untitled Recording");
   const [steps, setSteps] = useState<RecordingStepData[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<Date | null>(null);
 
-  const startRecording = useCallback(() => {
-    setIsRecording(true);
-    toast.success("Recording started! Add steps to capture your workflow with screenshots.");
-    
-    const interval = setInterval(() => {
-      setElapsedTime((prev) => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(interval);
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
   }, []);
 
-  const stopRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
+    if (!user) {
+      toast.error("Please sign in to create recordings.");
+      navigate("/auth");
+      return;
+    }
+
+    // Create recording in database
+    const recording = await createRecording(title, user.id);
+    if (!recording) {
+      toast.error("Failed to start recording. Please try again.");
+      return;
+    }
+
+    setCurrentRecording(recording);
+    setIsRecording(true);
+    startTimeRef.current = new Date();
+    toast.success("Recording started! Add steps to capture your workflow.");
+
+    timerRef.current = setInterval(() => {
+      setElapsedTime((prev) => prev + 1);
+    }, 1000);
+  }, [user, title, navigate]);
+
+  const stopRecording = useCallback(async () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     setIsRecording(false);
+
+    // Update recording in database
+    if (currentRecording) {
+      await updateRecording(currentRecording.id, {
+        status: "completed",
+        ended_at: new Date().toISOString(),
+        duration_seconds: elapsedTime,
+        step_count: steps.length,
+      });
+    }
+
     toast.success(`Recording stopped with ${steps.length} steps captured.`);
-  }, [steps.length]);
+  }, [currentRecording, elapsedTime, steps.length]);
 
   const addStep = useCallback(async (actionType: ActionType = "custom") => {
+    if (!user || !currentRecording) {
+      toast.error("Recording not initialized.");
+      return;
+    }
+
     // Generate instruction from last clicked element
     const instruction = generateInstruction(actionType);
-    
+
     // Capture screenshot
-    const screenshotUrl = await captureScreen();
-    
+    const screenshotDataUrl = await captureScreen();
+
+    const stepId = crypto.randomUUID();
+    const orderNumber = steps.length + 1;
+
+    // Upload screenshot if captured
+    let screenshotUrl: string | undefined;
+    if (screenshotDataUrl) {
+      const uploadedUrl = await uploadScreenshot(
+        user.id,
+        currentRecording.id,
+        stepId,
+        screenshotDataUrl
+      );
+      screenshotUrl = uploadedUrl || undefined;
+    }
+
+    // Save step to database
+    const savedStep = await createStep({
+      id: stepId,
+      recording_id: currentRecording.id,
+      order_number: orderNumber,
+      action_type: actionType,
+      instruction_text: instruction,
+      screenshot_url: screenshotUrl,
+      has_warning: false,
+      is_redacted: false,
+    });
+
+    if (!savedStep) {
+      toast.error("Failed to save step.");
+      return;
+    }
+
     const newStep: RecordingStepData = {
-      id: `step-${Date.now()}`,
-      orderNumber: steps.length + 1,
-      actionType,
+      id: savedStep.id,
+      orderNumber,
+      actionType: actionType as RecordingStepData["actionType"],
       instructionText: instruction,
-      screenshotUrl: screenshotUrl || undefined,
+      screenshotUrl,
       hasWarning: false,
       isRedacted: false,
     };
-    
-    setSteps((prev) => [...prev, newStep]);
-    
-    if (screenshotUrl) {
-      toast.success("Step added with screenshot!");
-    } else {
-      toast.success("Step added.");
-    }
-  }, [steps.length, captureScreen, generateInstruction]);
 
-  const updateStep = useCallback((id: string, updates: Partial<RecordingStepData>) => {
+    setSteps((prev) => [...prev, newStep]);
+    toast.success("Step captured!");
+  }, [user, currentRecording, steps.length, captureScreen, generateInstruction]);
+
+  const handleUpdateStep = useCallback(async (id: string, updates: Partial<RecordingStepData>) => {
+    // Update local state
     setSteps((prev) =>
       prev.map((step) => (step.id === id ? { ...step, ...updates } : step))
     );
+
+    // Update in database
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.instructionText !== undefined) dbUpdates.instruction_text = updates.instructionText;
+    if (updates.hasWarning !== undefined) dbUpdates.has_warning = updates.hasWarning;
+    if (updates.warningText !== undefined) dbUpdates.warning_text = updates.warningText;
+    if (updates.isRedacted !== undefined) dbUpdates.is_redacted = updates.isRedacted;
+    if (updates.url !== undefined) dbUpdates.url = updates.url;
+
+    if (Object.keys(dbUpdates).length > 0) {
+      await updateStepInDb(id, dbUpdates as Partial<Tables<"steps">>);
+    }
   }, []);
 
-  const removeStep = useCallback((id: string) => {
+  const removeStep = useCallback(async (id: string) => {
+    // Delete from database
+    const success = await deleteStepFromDb(id);
+    if (!success) {
+      toast.error("Failed to delete step.");
+      return;
+    }
+
+    // Update local state and reorder
     setSteps((prev) => {
       const filtered = prev.filter((step) => step.id !== id);
       return filtered.map((step, index) => ({ ...step, orderNumber: index + 1 }));
@@ -76,12 +184,16 @@ export default function RecordingNew() {
   }, []);
 
   const toggleWarning = useCallback((id: string) => {
-    setSteps((prev) =>
-      prev.map((step) =>
-        step.id === id ? { ...step, hasWarning: !step.hasWarning } : step
-      )
-    );
-  }, []);
+    setSteps((prev) => {
+      const step = prev.find((s) => s.id === id);
+      if (step) {
+        handleUpdateStep(id, { hasWarning: !step.hasWarning });
+      }
+      return prev.map((s) =>
+        s.id === id ? { ...s, hasWarning: !s.hasWarning } : s
+      );
+    });
+  }, [handleUpdateStep]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -94,8 +206,21 @@ export default function RecordingNew() {
       toast.error("Please add at least one step before saving.");
       return;
     }
-    
-    // TODO: Save to database
+
+    setIsSaving(true);
+
+    // Update recording with final details
+    if (currentRecording) {
+      await updateRecording(currentRecording.id, {
+        title,
+        status: "completed",
+        ended_at: new Date().toISOString(),
+        duration_seconds: elapsedTime,
+        step_count: steps.length,
+      });
+    }
+
+    setIsSaving(false);
     toast.success("Recording saved successfully!");
     navigate("/recordings");
   };
@@ -105,7 +230,10 @@ export default function RecordingNew() {
       toast.error("Please add at least one step before converting.");
       return;
     }
-    
+
+    // Save recording first
+    await handleSave();
+
     // TODO: Create SOP from recording
     toast.success("SOP created from recording!");
     navigate("/sops");
@@ -119,11 +247,15 @@ export default function RecordingNew() {
         <div className="flex items-center gap-2">
           {steps.length > 0 && (
             <>
-              <Button variant="outline" onClick={handleSave}>
-                <Save className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
                 Save Recording
               </Button>
-              <Button onClick={handleConvertToSOP}>
+              <Button onClick={handleConvertToSOP} disabled={isSaving}>
                 <FileText className="mr-2 h-4 w-4" />
                 Convert to SOP
               </Button>
@@ -190,7 +322,7 @@ export default function RecordingNew() {
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="pt-0">
             <div className="flex items-center gap-4">
               <div className="flex-1">
@@ -201,6 +333,7 @@ export default function RecordingNew() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter a descriptive title..."
                   className="mt-1"
+                  disabled={isRecording}
                 />
               </div>
               <div className="text-sm text-muted-foreground">
@@ -239,7 +372,7 @@ export default function RecordingNew() {
                     key={step.id}
                     step={step}
                     actionConfig={actionTypeConfig[step.actionType]}
-                    onUpdate={updateStep}
+                    onUpdate={handleUpdateStep}
                     onRemove={removeStep}
                     onToggleWarning={toggleWarning}
                   />

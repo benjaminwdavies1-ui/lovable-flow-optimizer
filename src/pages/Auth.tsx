@@ -1,13 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginForm } from "@/components/auth/LoginForm";
-import { SignupForm } from "@/components/auth/SignupForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap } from "lucide-react";
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -39,19 +37,13 @@ export default function Auth() {
         {/* Auth Card */}
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="text-center">
-            <CardTitle>{isLogin ? "Welcome back" : "Create an account"}</CardTitle>
+            <CardTitle>Welcome back</CardTitle>
             <CardDescription>
-              {isLogin
-                ? "Sign in to your account to continue"
-                : "Get started with Opstrace today"}
+              Sign in to your account to continue
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLogin ? (
-              <LoginForm onToggle={() => setIsLogin(false)} />
-            ) : (
-              <SignupForm onToggle={() => setIsLogin(true)} />
-            )}
+            <LoginForm />
           </CardContent>
         </Card>
 

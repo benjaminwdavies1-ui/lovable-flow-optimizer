@@ -12,11 +12,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-interface LoginFormProps {
-  onToggle: () => void;
-}
-
-export function LoginForm({ onToggle }: LoginFormProps) {
+export function LoginForm() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,17 +90,6 @@ export function LoginForm({ onToggle }: LoginFormProps) {
           "Sign in"
         )}
       </Button>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{" "}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="font-medium text-primary hover:underline"
-        >
-          Sign up
-        </button>
-      </p>
     </form>
   );
 }

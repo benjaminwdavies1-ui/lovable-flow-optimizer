@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AIAssistant } from "@/components/ai/AIAssistant";
 import Dashboard from "./pages/Dashboard";
 import Recordings from "./pages/Recordings";
 import SOPs from "./pages/SOPs";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      <AIAssistant />
     </TooltipProvider>
   </QueryClientProvider>
 );

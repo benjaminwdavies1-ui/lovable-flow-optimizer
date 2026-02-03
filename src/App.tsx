@@ -29,17 +29,21 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/recordings" element={<Recordings />} />
-            <Route path="/recordings/new" element={<RecordingNew />} />
-            <Route path="/sops" element={<SOPs />} />
-            <Route path="/sops/new" element={<SOPNew />} />
-            <Route path="/sops/:id" element={<SOPView />} />
-            <Route path="/sops/:id/edit" element={<SOPEdit />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/insights" element={<Insights />} />
-            <Route path="/automations" element={<Automations />} />
+            
+            {/* Protected routes - require authentication */}
+            <Route path="/" element={<AuthGuard><Dashboard /></AuthGuard>} />
+            <Route path="/recordings" element={<AuthGuard><Recordings /></AuthGuard>} />
+            <Route path="/recordings/new" element={<AuthGuard><RecordingNew /></AuthGuard>} />
+            <Route path="/sops" element={<AuthGuard><SOPs /></AuthGuard>} />
+            <Route path="/sops/new" element={<AuthGuard><SOPNew /></AuthGuard>} />
+            <Route path="/sops/:id" element={<AuthGuard><SOPView /></AuthGuard>} />
+            <Route path="/sops/:id/edit" element={<AuthGuard><SOPEdit /></AuthGuard>} />
+            <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            <Route path="/insights" element={<AuthGuard><Insights /></AuthGuard>} />
+            <Route path="/automations" element={<AuthGuard><Automations /></AuthGuard>} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

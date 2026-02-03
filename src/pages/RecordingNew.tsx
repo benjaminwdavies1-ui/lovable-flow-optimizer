@@ -5,60 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Video, 
-  Square, 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  AlertTriangle,
-  Save,
-  FileText,
-  Image,
-  MousePointer,
-  Keyboard,
-  ArrowRight,
-  Clock
-} from "lucide-react";
+import { Video, Square, Save, FileText, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-interface RecordingStep {
-  id: string;
-  orderNumber: number;
-  actionType: "click" | "type" | "navigate" | "scroll" | "custom";
-  instructionText: string;
-  url?: string;
-  screenshotUrl?: string;
-  hasWarning: boolean;
-  warningText?: string;
-  isRedacted: boolean;
-}
-
-const actionTypeConfig = {
-  click: { label: "Click", icon: MousePointer, color: "bg-blue-500" },
-  type: { label: "Type", icon: Keyboard, color: "bg-green-500" },
-  navigate: { label: "Navigate", icon: ArrowRight, color: "bg-purple-500" },
-  scroll: { label: "Scroll", icon: GripVertical, color: "bg-orange-500" },
-  custom: { label: "Custom", icon: FileText, color: "bg-gray-500" },
-};
+import { useScreenCapture } from "@/hooks/useScreenCapture";
+import { RecordingStep, RecordingStepData } from "@/components/recording/RecordingStep";
+import { StepTypeButtons, ActionType, actionTypeConfig } from "@/components/recording/StepTypeButtons";
 
 export default function RecordingNew() {
   const navigate = useNavigate();
+  const { captureScreen, isCapturing } = useScreenCapture();
   const [isRecording, setIsRecording] = useState(false);
   const [title, setTitle] = useState("Untitled Recording");
-  const [steps, setSteps] = useState<RecordingStep[]>([]);
-  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [steps, setSteps] = useState<RecordingStepData[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const startRecording = useCallback(() => {
     setIsRecording(true);
-    setStartTime(new Date());
-    toast.success("Recording started! Add steps manually below.");
+    toast.success("Recording started! Add steps to capture your workflow with screenshots.");
     
-    // Start timer
     const interval = setInterval(() => {
       setElapsedTime((prev) => prev + 1);
     }, 1000);
@@ -71,19 +36,30 @@ export default function RecordingNew() {
     toast.success(`Recording stopped with ${steps.length} steps captured.`);
   }, [steps.length]);
 
-  const addStep = useCallback((actionType: RecordingStep["actionType"] = "custom") => {
-    const newStep: RecordingStep = {
+  const addStep = useCallback(async (actionType: ActionType = "custom") => {
+    // Capture screenshot before adding step
+    const screenshotUrl = await captureScreen();
+    
+    const newStep: RecordingStepData = {
       id: `step-${Date.now()}`,
       orderNumber: steps.length + 1,
       actionType,
       instructionText: "",
+      screenshotUrl: screenshotUrl || undefined,
       hasWarning: false,
       isRedacted: false,
     };
+    
     setSteps((prev) => [...prev, newStep]);
-  }, [steps.length]);
+    
+    if (screenshotUrl) {
+      toast.success("Step added with screenshot!");
+    } else {
+      toast.success("Step added.");
+    }
+  }, [steps.length, captureScreen]);
 
-  const updateStep = useCallback((id: string, updates: Partial<RecordingStep>) => {
+  const updateStep = useCallback((id: string, updates: Partial<RecordingStepData>) => {
     setSteps((prev) =>
       prev.map((step) => (step.id === id ? { ...step, ...updates } : step))
     );
@@ -116,7 +92,7 @@ export default function RecordingNew() {
       return;
     }
     
-    // TODO: Save to Supabase
+    // TODO: Save to database
     toast.success("Recording saved successfully!");
     navigate("/recordings");
   };
@@ -135,7 +111,7 @@ export default function RecordingNew() {
   return (
     <AppLayout
       title="New Recording"
-      description="Capture your workflow step by step"
+      description="Capture your workflow step by step with automatic screenshots"
       actions={
         <div className="flex items-center gap-2">
           {steps.length > 0 && (
@@ -185,8 +161,8 @@ export default function RecordingNew() {
                   </CardTitle>
                   <CardDescription>
                     {isRecording 
-                      ? "Add steps as you perform your workflow"
-                      : "Start recording to capture your workflow"}
+                      ? "Each step captures a screenshot automatically"
+                      : "Start recording to capture your workflow with screenshots"}
                   </CardDescription>
                 </div>
               </div>
@@ -212,7 +188,6 @@ export default function RecordingNew() {
             </div>
           </CardHeader>
           
-          {/* Recording Title */}
           <CardContent className="pt-0">
             <div className="flex items-center gap-4">
               <div className="flex-1">
@@ -237,26 +212,10 @@ export default function RecordingNew() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Add Step</CardTitle>
-              <CardDescription>Click to add a new step type</CardDescription>
+              <CardDescription>Click to add a step with automatic screenshot capture</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(actionTypeConfig).map(([type, config]) => {
-                  const Icon = config.icon;
-                  return (
-                    <Button
-                      key={type}
-                      variant="outline"
-                      onClick={() => addStep(type as RecordingStep["actionType"])}
-                      className="gap-2"
-                    >
-                      <div className={cn("h-2 w-2 rounded-full", config.color)} />
-                      <Icon className="h-4 w-4" />
-                      {config.label}
-                    </Button>
-                  );
-                })}
-              </div>
+              <StepTypeButtons onAddStep={addStep} isCapturing={isCapturing} />
             </CardContent>
           </Card>
         )}
@@ -267,90 +226,21 @@ export default function RecordingNew() {
             <CardHeader>
               <CardTitle>Captured Steps</CardTitle>
               <CardDescription>
-                Edit step details, add warnings, or reorder as needed
+                Edit step details, view screenshots, or add warnings as needed
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {steps.map((step) => {
-                  const config = actionTypeConfig[step.actionType];
-                  const Icon = config.icon;
-                  
-                  return (
-                    <div
-                      key={step.id}
-                      className={cn(
-                        "rounded-lg border p-4 transition-all",
-                        step.hasWarning && "border-warning bg-warning/5"
-                      )}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-sm font-medium">
-                          {step.orderNumber}
-                        </div>
-                        
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="gap-1">
-                              <div className={cn("h-2 w-2 rounded-full", config.color)} />
-                              {config.label}
-                            </Badge>
-                            {step.hasWarning && (
-                              <Badge variant="outline" className="text-warning border-warning">
-                                <AlertTriangle className="mr-1 h-3 w-3" />
-                                Warning
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <Textarea
-                            value={step.instructionText}
-                            onChange={(e) => updateStep(step.id, { instructionText: e.target.value })}
-                            placeholder="Describe what to do in this step..."
-                            className="min-h-[60px] resize-none"
-                          />
-                          
-                          {step.actionType === "navigate" && (
-                            <Input
-                              value={step.url || ""}
-                              onChange={(e) => updateStep(step.id, { url: e.target.value })}
-                              placeholder="https://example.com/page"
-                              className="mt-2"
-                            />
-                          )}
-                          
-                          {step.hasWarning && (
-                            <Textarea
-                              value={step.warningText || ""}
-                              onChange={(e) => updateStep(step.id, { warningText: e.target.value })}
-                              placeholder="Enter warning message..."
-                              className="mt-2 min-h-[40px] resize-none border-warning"
-                            />
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-col gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleWarning(step.id)}
-                            className={cn(step.hasWarning && "text-warning")}
-                          >
-                            <AlertTriangle className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeStep(step.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {steps.map((step) => (
+                  <RecordingStep
+                    key={step.id}
+                    step={step}
+                    actionConfig={actionTypeConfig[step.actionType]}
+                    onUpdate={updateStep}
+                    onRemove={removeStep}
+                    onToggleWarning={toggleWarning}
+                  />
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -363,8 +253,8 @@ export default function RecordingNew() {
               <Video className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium mb-2">No steps captured yet</h3>
               <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                Click "Start Recording" to begin capturing your workflow. 
-                Add steps manually as you perform each action.
+                Click "Start Recording" to begin. Each step you add will automatically 
+                capture a screenshot of your current screen.
               </p>
               <Button onClick={startRecording}>
                 <Video className="mr-2 h-4 w-4" />

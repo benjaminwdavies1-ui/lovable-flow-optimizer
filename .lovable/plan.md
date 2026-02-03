@@ -1,362 +1,264 @@
 
+# Phase 3+: Process Maps & Business Intelligence AI
 
-# Phase 2: Authentication & Database Foundation
-
-This phase establishes the secure backend infrastructure required before building the recording and SOP editing features.
+This builds on the core platform by adding two powerful AI-driven features:
+1. **Visual Process Maps** - Automatically generated flowcharts from recorded steps
+2. **Business Context AI** - An intelligent assistant that learns your organization's processes and provides optimization recommendations
 
 ---
 
 ## Overview
 
-We need to set up two critical pieces:
-1. **User Authentication** - Email/password login and signup so users can securely access their data
-2. **Database Schema** - Tables for Profiles, Recordings, Steps, SOPs, and SOP_Steps with proper security policies
+### Process Map Generation
+When a user records a workflow or views an SOP, the system will generate an interactive flowchart showing:
+- Sequential steps as nodes
+- Decision points and branches
+- Navigation flows between URLs/screens
+- Warnings and critical steps highlighted
 
-This ensures all subsequent features (recording sessions, SOP editing, etc.) can properly store and retrieve user-specific data.
+### Business Intelligence AI
+The AI assistant will evolve from a generic helper to a context-aware business analyst that:
+- Learns from all recorded workflows and SOPs
+- Identifies patterns, redundancies, and bottlenecks
+- Recommends process improvements and automation opportunities
+- Understands your business operations holistically
 
 ---
 
 ## What Will Be Built
 
-### 1. Authentication System
-- New `/auth` page with login and signup forms
-- Protected routes - redirect unauthenticated users to login
-- Logout functionality in the sidebar
-- Session management with automatic refresh
+### 1. Process Map Visualization
 
-### 2. Database Tables
+**Interactive Flowchart Component**
+- Rendered using a flowchart library (react-flow or Mermaid)
+- Nodes represent steps with action icons
+- Edges show flow direction
+- Color-coded by action type (click, navigation, form submission)
+- Zoom and pan controls
+- Warning steps highlighted in amber/red
 
-**profiles** - User profile information
-- `id` (UUID, links to auth.users)
-- `email`, `full_name`, `avatar_url`
-- `created_at`, `updated_at`
+**Automatic Generation**
+- Edge function that takes steps and produces a flowchart structure
+- AI analyzes step descriptions to identify decision points
+- Groups related steps into logical phases
 
-**recordings** - Captured workflow sessions
-- `id`, `user_id`, `title`
-- `status` (in_progress, completed, converted)
-- `started_at`, `ended_at`, `duration_seconds`
-- `step_count`, `created_at`
+**Display Locations**
+- Recording detail view
+- SOP viewer page
+- Dedicated "Process Map" tab
 
-**steps** - Individual actions within a recording
-- `id`, `recording_id`, `order_number`
-- `action_type` (click, navigation, form_submit, input, custom)
-- `instruction_text`, `screenshot_url`
-- `url`, `element_selector`, `timestamp`
-- `is_redacted`, `has_warning`, `warning_text`
+### 2. Business Context Knowledge Base
 
-**sops** - Standard Operating Procedures
-- `id`, `user_id`, `recording_id` (optional source)
-- `title`, `description`, `version`
-- `status` (draft, published)
-- `created_at`, `updated_at`, `published_at`
+**New Database Tables**
 
-**sop_steps** - Denormalized steps for SOP editing
-- `id`, `sop_id`, `order_number`
-- `title`, `description`, `screenshot_url`
-- `has_warning`, `warning_text`, `is_redacted`
-- `show_screenshot`
+```text
+business_context
+├── id (uuid)
+├── user_id (uuid)
+├── context_type ('process_pattern', 'business_rule', 'optimization_insight')
+├── title (text)
+├── content (text) - AI-generated summary
+├── source_ids (uuid[]) - Recording/SOP IDs this came from
+├── confidence_score (float)
+├── created_at, updated_at
+```
 
-### 3. Security Policies
-Each table will have Row-Level Security (RLS) policies ensuring:
-- Users can only see their own recordings, steps, and SOPs
-- Users can only modify their own data
-- Profile creation happens automatically on signup
+```text
+ai_recommendations
+├── id (uuid)
+├── user_id (uuid)
+├── recommendation_type ('automation', 'consolidation', 'warning', 'efficiency')
+├── title (text)
+├── description (text)
+├── affected_processes (uuid[]) - Related SOP IDs
+├── status ('pending', 'applied', 'dismissed')
+├── created_at
+```
+
+### 3. Enhanced AI Assistant
+
+**Context-Aware Chat**
+- Before responding, AI queries user's recordings, SOPs, and business context
+- Understands what processes exist and how they relate
+- Can answer questions like "How do we handle refunds?" or "What's our onboarding process?"
+
+**Proactive Recommendations**
+- "I noticed 3 SOPs share similar first steps - consider creating a reusable template"
+- "Your order processing takes 18 steps - similar businesses average 12"
+- "This step appears in 5 different processes - good candidate for automation"
+
+**Business Analysis Commands**
+- "Analyze my processes" - Generates insights dashboard
+- "Find automation opportunities" - Scans for repetitive patterns
+- "Compare process X to Y" - Side-by-side analysis
+
+---
+
+## Architecture
+
+```text
+User records workflow
+        │
+        ▼
+┌───────────────────┐
+│  Steps saved to   │
+│     database      │
+└─────────┬─────────┘
+          │
+          ▼
+┌───────────────────┐    ┌────────────────────────┐
+│  generate-process-│───▶│  Process Map JSON      │
+│  map edge function│    │  (nodes, edges, layout)│
+└───────────────────┘    └────────────────────────┘
+          │
+          ▼
+┌───────────────────┐    ┌────────────────────────┐
+│  analyze-business │───▶│  Business Context      │
+│  -context function│    │  Knowledge Base        │
+└───────────────────┘    └────────────────────────┘
+          │
+          ▼
+┌───────────────────┐
+│  AI Chat with     │
+│  RAG over context │
+└───────────────────┘
+```
 
 ---
 
 ## Implementation Steps
 
-### Step 1: Create Database Schema
-Single migration with all tables, relationships, and RLS policies.
+### Step 1: Add React Flow for Diagrams
+Install react-flow library and create a ProcessMap component that renders step data as an interactive flowchart.
 
-### Step 2: Create Authentication Context
-A React context provider that manages:
-- Current user/session state
-- Login, signup, logout functions
-- Loading states
-- Automatic session refresh
+### Step 2: Create Process Map Generation Edge Function
+New `generate-process-map` function that:
+- Takes an array of steps
+- Uses AI to identify step relationships and decision points
+- Returns a structured node/edge graph
 
-### Step 3: Build Auth Page
-A clean, professional login/signup page at `/auth` with:
-- Toggle between login and signup modes
-- Email and password validation
-- Error handling with friendly messages
-- Redirect to dashboard on success
+### Step 3: Add Business Context Tables
+Database migration for `business_context` and `ai_recommendations` tables with RLS policies.
 
-### Step 4: Protect Application Routes
-Wrap the app with an auth guard that:
-- Shows loading state while checking auth
-- Redirects to `/auth` if not logged in
-- Allows access to protected pages if authenticated
+### Step 4: Create Business Analysis Edge Function
+New `analyze-business-context` function that:
+- Runs periodically or on-demand
+- Scans all user's recordings and SOPs
+- Identifies patterns, redundancies, improvement opportunities
+- Stores insights in business_context table
 
-### Step 5: Update Sidebar
-Add user profile display and logout button to the sidebar.
+### Step 5: Enhance Chat Function with RAG
+Update the existing chat edge function to:
+- Query user's SOPs, recordings, and business context before responding
+- Include relevant process information in the AI prompt
+- Generate contextual, business-specific responses
+
+### Step 6: Build Insights Dashboard
+New dashboard section showing:
+- AI-generated process map overview
+- Recommendations panel
+- Business metrics and pattern insights
 
 ---
 
-## Technical Details
-
-### Database Migration SQL
-
-```text
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
-
--- Profiles table (linked to auth.users)
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text,
-  full_name text,
-  avatar_url text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- Recordings table
-create table public.recordings (
-  id uuid primary key default uuid_generate_v4(),
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  title text not null default 'Untitled Recording',
-  status text not null default 'in_progress' 
-    check (status in ('in_progress', 'completed', 'converted')),
-  started_at timestamptz default now(),
-  ended_at timestamptz,
-  duration_seconds integer default 0,
-  step_count integer default 0,
-  created_at timestamptz default now()
-);
-
--- Steps table
-create table public.steps (
-  id uuid primary key default uuid_generate_v4(),
-  recording_id uuid references public.recordings(id) on delete cascade not null,
-  order_number integer not null,
-  action_type text not null default 'custom'
-    check (action_type in ('click', 'navigation', 'form_submit', 'input', 'custom')),
-  instruction_text text,
-  screenshot_url text,
-  url text,
-  element_selector text,
-  timestamp timestamptz default now(),
-  is_redacted boolean default false,
-  has_warning boolean default false,
-  warning_text text,
-  created_at timestamptz default now()
-);
-
--- SOPs table
-create table public.sops (
-  id uuid primary key default uuid_generate_v4(),
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  recording_id uuid references public.recordings(id) on delete set null,
-  title text not null default 'Untitled SOP',
-  description text,
-  version integer default 1,
-  status text not null default 'draft'
-    check (status in ('draft', 'published')),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  published_at timestamptz
-);
-
--- SOP Steps table (denormalized for editing)
-create table public.sop_steps (
-  id uuid primary key default uuid_generate_v4(),
-  sop_id uuid references public.sops(id) on delete cascade not null,
-  order_number integer not null,
-  title text,
-  description text,
-  screenshot_url text,
-  has_warning boolean default false,
-  warning_text text,
-  is_redacted boolean default false,
-  show_screenshot boolean default true,
-  created_at timestamptz default now()
-);
-
--- Enable RLS on all tables
-alter table public.profiles enable row level security;
-alter table public.recordings enable row level security;
-alter table public.steps enable row level security;
-alter table public.sops enable row level security;
-alter table public.sop_steps enable row level security;
-
--- Profiles policies
-create policy "Users can view own profile"
-  on public.profiles for select
-  to authenticated
-  using (auth.uid() = id);
-
-create policy "Users can update own profile"
-  on public.profiles for update
-  to authenticated
-  using (auth.uid() = id);
-
--- Recordings policies
-create policy "Users can view own recordings"
-  on public.recordings for select
-  to authenticated
-  using (user_id = auth.uid());
-
-create policy "Users can create recordings"
-  on public.recordings for insert
-  to authenticated
-  with check (user_id = auth.uid());
-
-create policy "Users can update own recordings"
-  on public.recordings for update
-  to authenticated
-  using (user_id = auth.uid());
-
-create policy "Users can delete own recordings"
-  on public.recordings for delete
-  to authenticated
-  using (user_id = auth.uid());
-
--- Steps policies (based on recording ownership)
-create policy "Users can view steps of own recordings"
-  on public.steps for select
-  to authenticated
-  using (
-    recording_id in (
-      select id from public.recordings where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can create steps in own recordings"
-  on public.steps for insert
-  to authenticated
-  with check (
-    recording_id in (
-      select id from public.recordings where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can update steps in own recordings"
-  on public.steps for update
-  to authenticated
-  using (
-    recording_id in (
-      select id from public.recordings where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can delete steps in own recordings"
-  on public.steps for delete
-  to authenticated
-  using (
-    recording_id in (
-      select id from public.recordings where user_id = auth.uid()
-    )
-  );
-
--- SOPs policies
-create policy "Users can view own SOPs"
-  on public.sops for select
-  to authenticated
-  using (user_id = auth.uid());
-
-create policy "Users can create SOPs"
-  on public.sops for insert
-  to authenticated
-  with check (user_id = auth.uid());
-
-create policy "Users can update own SOPs"
-  on public.sops for update
-  to authenticated
-  using (user_id = auth.uid());
-
-create policy "Users can delete own SOPs"
-  on public.sops for delete
-  to authenticated
-  using (user_id = auth.uid());
-
--- SOP Steps policies (based on SOP ownership)
-create policy "Users can view steps of own SOPs"
-  on public.sop_steps for select
-  to authenticated
-  using (
-    sop_id in (
-      select id from public.sops where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can create steps in own SOPs"
-  on public.sop_steps for insert
-  to authenticated
-  with check (
-    sop_id in (
-      select id from public.sops where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can update steps in own SOPs"
-  on public.sop_steps for update
-  to authenticated
-  using (
-    sop_id in (
-      select id from public.sops where user_id = auth.uid()
-    )
-  );
-
-create policy "Users can delete steps in own SOPs"
-  on public.sop_steps for delete
-  to authenticated
-  using (
-    sop_id in (
-      select id from public.sops where user_id = auth.uid()
-    )
-  );
-
--- Trigger to auto-create profile on signup
-create or replace function public.handle_new_user()
-returns trigger as $$
-begin
-  insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, new.raw_user_meta_data->>'full_name');
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-```
-
-### New Files to Create
+## New Files
 
 | File | Purpose |
 |------|---------|
-| `src/contexts/AuthContext.tsx` | Auth state management and functions |
-| `src/pages/Auth.tsx` | Login/signup page |
-| `src/components/auth/AuthGuard.tsx` | Route protection wrapper |
-| `src/components/auth/LoginForm.tsx` | Login form component |
-| `src/components/auth/SignupForm.tsx` | Signup form component |
+| `src/components/process-map/ProcessMap.tsx` | Interactive flowchart component using react-flow |
+| `src/components/process-map/ProcessNode.tsx` | Custom node component for steps |
+| `src/components/insights/InsightsPanel.tsx` | AI recommendations display |
+| `src/components/insights/RecommendationCard.tsx` | Individual recommendation component |
+| `src/pages/Insights.tsx` | Business intelligence dashboard |
+| `supabase/functions/generate-process-map/index.ts` | AI-powered map generation |
+| `supabase/functions/analyze-business-context/index.ts` | Background business analysis |
 
 ### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/App.tsx` | Wrap with AuthProvider, add AuthGuard |
-| `src/components/layout/AppSidebar.tsx` | Add user info and logout button |
+| `supabase/functions/chat/index.ts` | Add RAG queries for business context |
+| `src/components/ai/AIAssistant.tsx` | Add quick action buttons for analysis |
+| `src/components/layout/AppSidebar.tsx` | Add Insights navigation link |
+| `src/App.tsx` | Add route for /insights page |
 
 ---
 
 ## User Experience
 
-1. **New users** visit the app and are redirected to `/auth`
-2. They see a clean signup form, enter email/password, and create an account
-3. After signup, they're automatically logged in and redirected to the dashboard
-4. **Returning users** can log in with their credentials
-5. The sidebar shows their email/name and provides a logout option
-6. All their recordings and SOPs are private and secure
+1. **Recording Completion**: User finishes recording, sees a generated process map
+2. **SOP View**: Each SOP shows its process map visually
+3. **Insights Page**: Dashboard with AI-detected patterns and recommendations
+4. **Chat Assistant**: Ask "What processes do I have?" and get accurate answers
+5. **Recommendations**: "3 of your processes could be combined" notification
 
 ---
 
-## After This Phase
+## Technical Details
 
-With authentication and database in place, we can proceed to:
-- **Phase 3: Recording Session** - Create `/recordings/new` with live step capture
-- **Phase 4: SOP Editor** - Build the full editing interface
-- **Phase 5: SOP Viewer & Export** - Read-only view and PDF export
+### Process Map Data Structure
+
+```typescript
+interface ProcessMapData {
+  nodes: {
+    id: string;
+    type: 'step' | 'decision' | 'start' | 'end';
+    label: string;
+    actionType: string;
+    hasWarning: boolean;
+    position: { x: number; y: number };
+  }[];
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    label?: string;
+  }[];
+}
+```
+
+### RAG Context for Chat
+
+The enhanced chat function will include in the system prompt:
+
+```text
+## User's Business Context
+
+Recorded Processes:
+- Customer Order Processing (12 steps)
+- Refund Request Handling (8 steps)
+- Employee Onboarding (18 steps)
+
+Key Patterns Identified:
+- Login is first step in 80% of processes
+- Average process length: 12 steps
+- Most common actions: Click (45%), Navigation (30%), Form Submit (15%)
+
+Active Recommendations:
+- Consider combining duplicate login steps
+- Refund process could be automated after step 3
+```
+
+---
+
+## Dependencies
+
+- **react-flow** (or similar): For interactive process map visualization
+- No additional AI API keys needed - uses existing Lovable AI
+
+---
+
+## Phased Rollout
+
+**Phase 3A: Process Maps (Build First)**
+- Install react-flow
+- Create ProcessMap component
+- Create generate-process-map edge function
+- Add process map to SOP viewer
+
+**Phase 3B: Business Intelligence (Build Second)**
+- Add database tables for context and recommendations
+- Create analyze-business-context function
+- Enhance chat with RAG
+- Build Insights dashboard
 

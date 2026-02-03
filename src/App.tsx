@@ -11,6 +11,7 @@ import Recordings from "./pages/Recordings";
 import SOPs from "./pages/SOPs";
 import Settings from "./pages/Settings";
 import Insights from "./pages/Insights";
+import Automations from "./pages/Automations";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -62,6 +63,14 @@ const App = () => (
               element={
                 <AuthGuard>
                   <Insights />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/automations"
+              element={
+                <AuthGuard>
+                  <Automations />
                 </AuthGuard>
               }
             />

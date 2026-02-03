@@ -47,6 +47,66 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_suggestions: {
+        Row: {
+          automation_type: string
+          created_at: string
+          description: string
+          estimated_time_saved: string | null
+          id: string
+          implementation_difficulty: string | null
+          integration_tools: string[] | null
+          sop_id: string | null
+          status: string | null
+          step_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          automation_type: string
+          created_at?: string
+          description: string
+          estimated_time_saved?: string | null
+          id?: string
+          implementation_difficulty?: string | null
+          integration_tools?: string[] | null
+          sop_id?: string | null
+          status?: string | null
+          step_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          automation_type?: string
+          created_at?: string
+          description?: string
+          estimated_time_saved?: string | null
+          id?: string
+          implementation_difficulty?: string | null
+          integration_tools?: string[] | null
+          sop_id?: string | null
+          status?: string | null
+          step_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_suggestions_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_suggestions_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "sop_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_context: {
         Row: {
           confidence_score: number | null

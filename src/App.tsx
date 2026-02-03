@@ -26,54 +26,12 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/"
-              element={
-                <AuthGuard>
-                  <Dashboard />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/recordings"
-              element={
-                <AuthGuard>
-                  <Recordings />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/sops"
-              element={
-                <AuthGuard>
-                  <SOPs />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <AuthGuard>
-                  <Settings />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/insights"
-              element={
-                <AuthGuard>
-                  <Insights />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/automations"
-              element={
-                <AuthGuard>
-                  <Automations />
-                </AuthGuard>
-              }
-            />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/recordings" element={<Recordings />} />
+            <Route path="/sops" element={<SOPs />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/insights" element={<Insights />} />
+            <Route path="/automations" element={<Automations />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

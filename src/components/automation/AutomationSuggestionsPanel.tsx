@@ -9,16 +9,27 @@ import { AutomationSuggestionCard } from "./AutomationSuggestionCard";
 import { Lightbulb, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-interface AutomationSuggestionsPanelProps {
-  sopId?: string;
+interface SopStep {
+  id: string;
+  order_number: number;
+  title: string;
+  description: string;
 }
 
-export function AutomationSuggestionsPanel({ sopId }: AutomationSuggestionsPanelProps) {
+interface AutomationSuggestionsPanelProps {
+  sopId?: string;
+  mockSteps?: SopStep[];
+}
+
+export function AutomationSuggestionsPanel({ sopId, mockSteps }: AutomationSuggestionsPanelProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [mockSuggestions, setMockSuggestions] = useState<any[]>([]);
 
-  const { data: suggestions, isLoading } = useQuery({
+  const isMockSop = sopId?.startsWith("mock-");
+
+  const { data: dbSuggestions, isLoading } = useQuery({
     queryKey: ["automation-suggestions", sopId],
     queryFn: async () => {
       let query = supabase
@@ -34,8 +45,10 @@ export function AutomationSuggestionsPanel({ sopId }: AutomationSuggestionsPanel
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !isMockSop,
   });
+
+  const suggestions = isMockSop ? mockSuggestions : dbSuggestions;
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -56,18 +69,32 @@ export function AutomationSuggestionsPanel({ sopId }: AutomationSuggestionsPanel
   });
 
   const handleAnalyzeSOP = async () => {
-    if (!sopId || !user) {
+    if (!sopId) {
       toast.error("Please select an SOP to analyze");
       return;
     }
 
     setIsAnalyzing(true);
     try {
+      // For mock SOPs, pass steps directly to the edge function
+      const body = isMockSop && mockSteps 
+        ? { mock_steps: mockSteps, sop_title: "Customer Onboarding Process" }
+        : { sop_id: sopId, user_id: user?.id };
+
       const { data, error } = await supabase.functions.invoke("suggest-automations", {
-        body: { sop_id: sopId, user_id: user.id },
+        body,
       });
 
       if (error) throw error;
+
+      if (isMockSop && data.suggestions) {
+        // Store mock suggestions in local state
+        setMockSuggestions(data.suggestions.map((s: any, idx: number) => ({
+          id: `mock-suggestion-${idx}`,
+          ...s,
+          status: "pending",
+        })));
+      }
 
       toast.success(data.message || "Analysis complete!");
       queryClient.invalidateQueries({ queryKey: ["automation-suggestions", sopId] });
@@ -80,7 +107,12 @@ export function AutomationSuggestionsPanel({ sopId }: AutomationSuggestionsPanel
   };
 
   const handleStatusChange = (id: string, status: string) => {
-    updateStatusMutation.mutate({ id, status });
+    if (isMockSop) {
+      setMockSuggestions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+      toast.success("Status updated");
+    } else {
+      updateStatusMutation.mutate({ id, status });
+    }
   };
 
   const activeSuggestions = suggestions?.filter((s) => s.status !== "dismissed") || [];

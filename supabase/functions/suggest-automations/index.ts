@@ -12,51 +12,70 @@ serve(async (req) => {
   }
 
   try {
-    const { sop_id, user_id } = await req.json();
+    const { sop_id, user_id, mock_steps, sop_title } = await req.json();
 
-    if (!sop_id || !user_id) {
+    // Handle mock steps for testing (no database needed)
+    const isMockRequest = mock_steps && Array.isArray(mock_steps);
+
+    if (!isMockRequest && (!sop_id || !user_id)) {
       return new Response(
-        JSON.stringify({ error: 'sop_id and user_id are required' }),
+        JSON.stringify({ error: 'sop_id and user_id are required (or mock_steps for testing)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    let sopContext: string;
+    let steps: any[] = [];
 
-    // Fetch the SOP and its steps
-    const { data: sop, error: sopError } = await supabase
-      .from('sops')
-      .select('*')
-      .eq('id', sop_id)
-      .single();
+    if (isMockRequest) {
+      // Use mock steps directly
+      steps = mock_steps;
+      sopContext = `
+SOP Title: ${sop_title || 'Sample SOP'}
+SOP Description: A workflow to analyze for automation opportunities
 
-    if (sopError || !sop) {
-      return new Response(
-        JSON.stringify({ error: 'SOP not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+Steps:
+${mock_steps.map((step: any, i: number) => `${i + 1}. ${step.title || 'Untitled step'}: ${step.description || 'No description'}`).join('\n')}
+`;
+    } else {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: steps, error: stepsError } = await supabase
-      .from('sop_steps')
-      .select('*')
-      .eq('sop_id', sop_id)
-      .order('order_number');
+      // Fetch the SOP and its steps
+      const { data: sop, error: sopError } = await supabase
+        .from('sops')
+        .select('*')
+        .eq('id', sop_id)
+        .single();
 
-    if (stepsError) {
-      console.error('Error fetching steps:', stepsError);
-    }
+      if (sopError || !sop) {
+        return new Response(
+          JSON.stringify({ error: 'SOP not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    // Build context for AI
-    const sopContext = `
+      const { data: dbSteps, error: stepsError } = await supabase
+        .from('sop_steps')
+        .select('*')
+        .eq('sop_id', sop_id)
+        .order('order_number');
+
+      if (stepsError) {
+        console.error('Error fetching steps:', stepsError);
+      }
+      
+      steps = dbSteps || [];
+
+      sopContext = `
 SOP Title: ${sop.title}
 SOP Description: ${sop.description || 'No description'}
 
 Steps:
-${(steps || []).map((step, i) => `${i + 1}. ${step.title || 'Untitled step'}: ${step.description || 'No description'}`).join('\n')}
+${steps.map((step, i) => `${i + 1}. ${step.title || 'Untitled step'}: ${step.description || 'No description'}`).join('\n')}
 `;
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -80,13 +99,19 @@ ${(steps || []).map((step, i) => `${i + 1}. ${step.title || 'Untitled step'}: ${
         }
       ];
 
-      // Store mock suggestions
-      for (const suggestion of mockSuggestions) {
-        await supabase.from('automation_suggestions').insert({
-          user_id,
-          sop_id,
-          ...suggestion
-        });
+      // Only store in database if not a mock request
+      if (!isMockRequest && user_id && sop_id) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        for (const suggestion of mockSuggestions) {
+          await supabase.from('automation_suggestions').insert({
+            user_id,
+            sop_id,
+            ...suggestion
+          });
+        }
       }
 
       return new Response(
@@ -192,23 +217,29 @@ Focus on practical, implementable automations using popular tools like Zapier, n
     // Map step_index to actual step_id if available
     const stepsArray = steps || [];
     
-    // Store suggestions in database
-    for (const suggestion of suggestions) {
-      const stepId = suggestion.step_index && stepsArray[suggestion.step_index - 1] 
-        ? stepsArray[suggestion.step_index - 1].id 
-        : null;
+    // Store suggestions in database only if not a mock request
+    if (!isMockRequest && user_id && sop_id) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      for (const suggestion of suggestions) {
+        const stepId = suggestion.step_index && stepsArray[suggestion.step_index - 1] 
+          ? stepsArray[suggestion.step_index - 1].id 
+          : null;
 
-      await supabase.from('automation_suggestions').insert({
-        user_id,
-        sop_id,
-        step_id: stepId,
-        title: suggestion.title,
-        description: suggestion.description,
-        automation_type: suggestion.automation_type,
-        integration_tools: suggestion.integration_tools,
-        estimated_time_saved: suggestion.estimated_time_saved,
-        implementation_difficulty: suggestion.implementation_difficulty
-      });
+        await supabase.from('automation_suggestions').insert({
+          user_id,
+          sop_id,
+          step_id: stepId,
+          title: suggestion.title,
+          description: suggestion.description,
+          automation_type: suggestion.automation_type,
+          integration_tools: suggestion.integration_tools,
+          estimated_time_saved: suggestion.estimated_time_saved,
+          implementation_difficulty: suggestion.implementation_difficulty
+        });
+      }
     }
 
     return new Response(

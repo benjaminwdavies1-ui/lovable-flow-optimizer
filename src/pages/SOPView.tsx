@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TagDisplay } from "@/components/ui/tag-input";
 import { 
   FileText, 
   Edit, 
@@ -15,7 +16,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Image as ImageIcon
+  Users,
+  Building2,
+  Wrench
 } from "lucide-react";
 import { getSOPWithSteps, type SOP, type SOPStep } from "@/services/sopService";
 
@@ -159,7 +162,7 @@ export default function SOPView() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
@@ -170,6 +173,41 @@ export default function SOPView() {
                 <span>{steps.length} steps</span>
               </div>
             </div>
+            
+            {/* Tags Section */}
+            {((sop.employee_tags && sop.employee_tags.length > 0) || 
+              (sop.department_tags && sop.department_tags.length > 0) || 
+              (sop.tools_tags && sop.tools_tags.length > 0)) && (
+              <div className="space-y-3 pt-2">
+                {sop.employee_tags && sop.employee_tags.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Users className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-muted-foreground font-medium">Employees</span>
+                      <TagDisplay tags={sop.employee_tags} variant="employee" className="mt-1" />
+                    </div>
+                  </div>
+                )}
+                {sop.department_tags && sop.department_tags.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Building2 className="h-4 w-4 text-purple-500 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-muted-foreground font-medium">Departments</span>
+                      <TagDisplay tags={sop.department_tags} variant="department" className="mt-1" />
+                    </div>
+                  </div>
+                )}
+                {sop.tools_tags && sop.tools_tags.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Wrench className="h-4 w-4 text-green-500 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-muted-foreground font-medium">Tools & Software</span>
+                      <TagDisplay tags={sop.tools_tags} variant="tools" className="mt-1" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

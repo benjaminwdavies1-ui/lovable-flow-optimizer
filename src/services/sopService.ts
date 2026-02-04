@@ -2,7 +2,11 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { getRecordingWithSteps, updateRecording } from "./recordingService";
 
-export type SOP = Tables<"sops">;
+export type SOP = Tables<"sops"> & {
+  employee_tags?: string[] | null;
+  department_tags?: string[] | null;
+  tools_tags?: string[] | null;
+};
 export type SOPStep = Tables<"sop_steps">;
 export type SOPInsert = TablesInsert<"sops">;
 export type SOPStepInsert = TablesInsert<"sop_steps">;

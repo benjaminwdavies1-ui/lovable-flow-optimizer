@@ -185,3 +185,71 @@ export async function getRecordingWithSteps(
 
   return { recording, steps: steps || [] };
 }
+
+// Delete a recording and all its steps
+export async function deleteRecording(recordingId: string): Promise<boolean> {
+  // Delete steps first (foreign key constraint)
+  const { error: stepsError } = await supabase
+    .from("steps")
+    .delete()
+    .eq("recording_id", recordingId);
+
+  if (stepsError) {
+    console.error("Error deleting steps:", stepsError);
+    return false;
+  }
+
+  const { error } = await supabase
+    .from("recordings")
+    .delete()
+    .eq("id", recordingId);
+
+  if (error) {
+    console.error("Error deleting recording:", error);
+    return false;
+  }
+
+  return true;
+}
+
+// Get recordings with step count for list view
+export interface RecordingWithStepCount extends Recording {
+  step_count: number;
+}
+
+export async function getUserRecordingsWithCounts(): Promise<RecordingWithStepCount[]> {
+  const { data: recordings, error } = await supabase
+    .from("recordings")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching recordings:", error);
+    return [];
+  }
+
+  // Get step counts for each recording
+  const recordingIds = recordings?.map(r => r.id) || [];
+  if (recordingIds.length === 0) return [];
+
+  const { data: stepCounts, error: countError } = await supabase
+    .from("steps")
+    .select("recording_id")
+    .in("recording_id", recordingIds);
+
+  if (countError) {
+    console.error("Error fetching step counts:", countError);
+    return recordings?.map(r => ({ ...r, step_count: r.step_count || 0 })) || [];
+  }
+
+  // Count steps per recording
+  const countMap: Record<string, number> = {};
+  stepCounts?.forEach(step => {
+    countMap[step.recording_id] = (countMap[step.recording_id] || 0) + 1;
+  });
+
+  return recordings?.map(r => ({
+    ...r,
+    step_count: countMap[r.id] || r.step_count || 0,
+  })) || [];
+}

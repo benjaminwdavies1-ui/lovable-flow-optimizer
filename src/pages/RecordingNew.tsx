@@ -231,12 +231,34 @@ export default function RecordingNew() {
       return;
     }
 
-    // Save recording first
-    await handleSave();
+    if (!user || !currentRecording) {
+      toast.error("Recording not initialized.");
+      return;
+    }
 
-    // TODO: Create SOP from recording
-    toast.success("SOP created from recording!");
-    navigate("/sops");
+    setIsSaving(true);
+
+    // Save recording first
+    await updateRecording(currentRecording.id, {
+      title,
+      status: "completed",
+      ended_at: new Date().toISOString(),
+      duration_seconds: elapsedTime,
+      step_count: steps.length,
+    });
+
+    // Import and call createSOPFromRecording
+    const { createSOPFromRecording } = await import("@/services/sopService");
+    const sop = await createSOPFromRecording(currentRecording.id, user.id);
+    
+    setIsSaving(false);
+
+    if (sop) {
+      toast.success("SOP created from recording!");
+      navigate(`/sops/${sop.id}`);
+    } else {
+      toast.error("Failed to create SOP. Please try again.");
+    }
   };
 
   return (

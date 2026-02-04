@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { TagInput } from "@/components/ui/tag-input";
 import { 
   FileText, 
   Plus, 
@@ -16,10 +16,14 @@ import {
   Save,
   Eye,
   Send,
-  ArrowLeft
+  ArrowLeft,
+  Users,
+  Building2,
+  Wrench
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getSOPWithSteps, updateSOP, type SOP, type SOPStep as DBSOPStep } from "@/services/sopService";
 
 interface SOPStep {
   id: string;
@@ -33,35 +37,6 @@ interface SOPStep {
   isRedacted: boolean;
 }
 
-// Mock SOP data - will be replaced with Supabase fetch
-const mockSOP = {
-  id: "1",
-  title: "Customer Order Processing",
-  description: "Complete guide to processing customer orders in the CRM system.",
-  status: "published" as const,
-  version: 2,
-  steps: [
-    {
-      id: "1",
-      orderNumber: 1,
-      title: "Log into the CRM system",
-      description: "Navigate to crm.example.com and enter your credentials.",
-      showScreenshot: true,
-      hasWarning: false,
-      isRedacted: false,
-    },
-    {
-      id: "2",
-      orderNumber: 2,
-      title: "Navigate to Orders section",
-      description: "Click on 'Orders' in the left sidebar.",
-      showScreenshot: true,
-      hasWarning: false,
-      isRedacted: false,
-    },
-  ],
-};
-
 export default function SOPEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -69,14 +44,39 @@ export default function SOPEdit() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState<SOPStep[]>([]);
+  const [employeeTags, setEmployeeTags] = useState<string[]>([]);
+  const [departmentTags, setDepartmentTags] = useState<string[]>([]);
+  const [toolsTags, setToolsTags] = useState<string[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load SOP data
+  // Load SOP data from database
   useEffect(() => {
-    // TODO: Fetch from Supabase using id
-    setTitle(mockSOP.title);
-    setDescription(mockSOP.description);
-    setSteps(mockSOP.steps);
+    async function loadSOP() {
+      if (!id) return;
+      setIsLoading(true);
+      const data = await getSOPWithSteps(id);
+      if (data) {
+        setTitle(data.sop.title);
+        setDescription(data.sop.description || "");
+        setEmployeeTags(data.sop.employee_tags || []);
+        setDepartmentTags(data.sop.department_tags || []);
+        setToolsTags(data.sop.tools_tags || []);
+        setSteps(data.steps.map(step => ({
+          id: step.id,
+          orderNumber: step.order_number,
+          title: step.title || "",
+          description: step.description || "",
+          screenshotUrl: step.screenshot_url || undefined,
+          showScreenshot: step.show_screenshot || false,
+          hasWarning: step.has_warning || false,
+          warningText: step.warning_text || undefined,
+          isRedacted: step.is_redacted || false,
+        })));
+      }
+      setIsLoading(false);
+    }
+    loadSOP();
   }, [id]);
 
   const addStep = useCallback(() => {
@@ -123,7 +123,16 @@ export default function SOPEdit() {
       return;
     }
     
-    // TODO: Save to Supabase
+    if (!id) return;
+    
+    await updateSOP(id, {
+      title,
+      description,
+      employee_tags: employeeTags,
+      department_tags: departmentTags,
+      tools_tags: toolsTags,
+    });
+    
     toast.success("Changes saved!");
     setIsDirty(false);
   };
@@ -138,7 +147,18 @@ export default function SOPEdit() {
       return;
     }
     
-    // TODO: Save to Supabase and publish
+    if (!id) return;
+    
+    await updateSOP(id, {
+      title,
+      description,
+      employee_tags: employeeTags,
+      department_tags: departmentTags,
+      tools_tags: toolsTags,
+      status: "published",
+      published_at: new Date().toISOString(),
+    });
+    
     toast.success("SOP published successfully!");
     navigate(`/sops/${id}`);
   };
@@ -202,6 +222,46 @@ export default function SOPEdit() {
                 placeholder="Briefly describe what this SOP covers..."
                 className="min-h-[80px]"
               />
+            </div>
+            
+            {/* Tags Section */}
+            <div className="grid gap-4 pt-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" />
+                  Employee Tags
+                </Label>
+                <TagInput
+                  value={employeeTags}
+                  onChange={(tags) => { setEmployeeTags(tags); setIsDirty(true); }}
+                  placeholder="Add employee names..."
+                  variant="employee"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-purple-500" />
+                  Department Tags
+                </Label>
+                <TagInput
+                  value={departmentTags}
+                  onChange={(tags) => { setDepartmentTags(tags); setIsDirty(true); }}
+                  placeholder="Add department names..."
+                  variant="department"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-green-500" />
+                  Tools & Software Tags
+                </Label>
+                <TagInput
+                  value={toolsTags}
+                  onChange={(tags) => { setToolsTags(tags); setIsDirty(true); }}
+                  placeholder="Add tools or software..."
+                  variant="tools"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

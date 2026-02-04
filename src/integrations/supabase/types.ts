@@ -267,36 +267,45 @@ export type Database = {
       sops: {
         Row: {
           created_at: string | null
+          department_tags: string[] | null
           description: string | null
+          employee_tags: string[] | null
           id: string
           published_at: string | null
           recording_id: string | null
           status: string
           title: string
+          tools_tags: string[] | null
           updated_at: string | null
           user_id: string
           version: number | null
         }
         Insert: {
           created_at?: string | null
+          department_tags?: string[] | null
           description?: string | null
+          employee_tags?: string[] | null
           id?: string
           published_at?: string | null
           recording_id?: string | null
           status?: string
           title?: string
+          tools_tags?: string[] | null
           updated_at?: string | null
           user_id: string
           version?: number | null
         }
         Update: {
           created_at?: string | null
+          department_tags?: string[] | null
           description?: string | null
+          employee_tags?: string[] | null
           id?: string
           published_at?: string | null
           recording_id?: string | null
           status?: string
           title?: string
+          tools_tags?: string[] | null
           updated_at?: string | null
           user_id?: string
           version?: number | null

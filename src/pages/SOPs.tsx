@@ -1,8 +1,10 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -18,48 +20,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileText, MoreHorizontal, Edit, Eye, Share2, Download, Trash2, Plus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { FileText, MoreHorizontal, Edit, Eye, Share2, Download, Trash2, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Placeholder data
-const mockSOPs = [
-  {
-    id: "1",
-    title: "Customer Order Processing",
-    description: "Complete guide to processing customer orders in the CRM",
-    status: "published" as const,
-    version: 2,
-    stepCount: 12,
-    updatedAt: "2024-01-15T10:30:00",
-  },
-  {
-    id: "2",
-    title: "Refund Request Handling",
-    description: "Standard procedure for handling customer refund requests",
-    status: "draft" as const,
-    version: 1,
-    stepCount: 8,
-    updatedAt: "2024-01-14T14:20:00",
-  },
-  {
-    id: "3",
-    title: "New Employee Onboarding",
-    description: "Step-by-step onboarding process for new team members",
-    status: "published" as const,
-    version: 3,
-    stepCount: 18,
-    updatedAt: "2024-01-13T11:45:00",
-  },
-  {
-    id: "4",
-    title: "Monthly Report Generation",
-    description: "How to generate and distribute monthly performance reports",
-    status: "published" as const,
-    version: 1,
-    stepCount: 15,
-    updatedAt: "2024-01-12T16:00:00",
-  },
-];
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { getUserSOPs, deleteSOP, type SOPWithStepCount } from "@/services/sopService";
 
 const statusConfig = {
   draft: {
@@ -72,7 +47,8 @@ const statusConfig = {
   },
 };
 
-function formatDate(dateString: string) {
+function formatDate(dateString: string | null) {
+  if (!dateString) return "—";
   return new Date(dateString).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -81,6 +57,37 @@ function formatDate(dateString: string) {
 }
 
 export default function SOPs() {
+  const { user } = useAuth();
+  const [sops, setSOPs] = useState<SOPWithStepCount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    async function loadSOPs() {
+      if (!user) return;
+      setIsLoading(true);
+      const data = await getUserSOPs();
+      setSOPs(data);
+      setIsLoading(false);
+    }
+    loadSOPs();
+  }, [user]);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    const success = await deleteSOP(deleteId);
+    if (success) {
+      setSOPs((prev) => prev.filter((s) => s.id !== deleteId));
+      toast.success("SOP deleted");
+    } else {
+      toast.error("Failed to delete SOP");
+    }
+    setIsDeleting(false);
+    setDeleteId(null);
+  };
+
   return (
     <AppLayout
       title="SOPs"
@@ -96,89 +103,149 @@ export default function SOPs() {
     >
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Steps</TableHead>
-                <TableHead>Updated</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockSOPs.map((sop) => {
-                const status = statusConfig[sop.status];
-                return (
-                  <TableRow key={sop.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+          {isLoading ? (
+            <div className="p-6 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              ))}
+            </div>
+          ) : sops.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No SOPs yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create your first SOP or convert a recording
+              </p>
+              <Button asChild>
+                <Link to="/sops/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create SOP
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Steps</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sops.map((sop) => {
+                  const statusKey = sop.status as keyof typeof statusConfig;
+                  const status = statusConfig[statusKey] || statusConfig.draft;
+                  return (
+                    <TableRow key={sop.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <span className="font-medium">{sop.title}</span>
+                            {sop.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {sop.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-medium">{sop.title}</span>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {sop.description}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={cn(status.className)} variant="secondary">
-                        {status.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>v{sop.version}</TableCell>
-                    <TableCell>{sop.stepCount}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(sop.updatedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to={`/sops/${sop.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to={`/sops/${sop.id}/edit`}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Download className="mr-2 h-4 w-4" />
-                            Export PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={cn(status.className)} variant="secondary">
+                          {status.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>v{sop.version || 1}</TableCell>
+                      <TableCell>{sop.step_count}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(sop.updated_at)}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/sops/${sop.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/sops/${sop.id}/edit`}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Share
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Download className="mr-2 h-4 w-4" />
+                              Export PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteId(sop.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete SOP</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              SOP and all its steps.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

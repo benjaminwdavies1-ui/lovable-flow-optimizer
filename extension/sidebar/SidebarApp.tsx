@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { RecordingSession, CapturedStep, AuthState } from "../shared/types";
 import { sendToBackground } from "../shared/messaging";
-
+import {
+  supabase,
+  setAuthFromStorage,
+  createRecording,
+  createStep,
+  updateRecordingStatus,
+  uploadScreenshot,
+} from "../shared/supabase";
 // Icons as inline SVGs for the extension
 const PlayIcon = () => (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -67,6 +74,8 @@ export function SidebarApp() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [cloudRecordingId, setCloudRecordingId] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
 
   // Load session and auth state on mount
   useEffect(() => {
@@ -117,6 +126,18 @@ export function SidebarApp() {
   };
 
   const loadAuthState = async () => {
+    // Try to set auth from storage first
+    const hasAuth = await setAuthFromStorage();
+    if (hasAuth) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setIsAuthenticated(true);
+        setUserId(user.id);
+        return;
+      }
+    }
+    
+    // Fallback to storage check
     const result = await chrome.storage.sync.get("opstrace_auth");
     if (result.opstrace_auth) {
       setIsAuthenticated(result.opstrace_auth.isAuthenticated);
@@ -131,6 +152,20 @@ export function SidebarApp() {
   };
 
   const startRecording = async () => {
+    // Create recording in Supabase if authenticated
+    let recordingId: string | null = null;
+    if (isAuthenticated && userId) {
+      setSyncStatus("syncing");
+      const cloudRecording = await createRecording(title, userId);
+      if (cloudRecording) {
+        recordingId = cloudRecording.id;
+        setCloudRecordingId(recordingId);
+        setSyncStatus("synced");
+      } else {
+        setSyncStatus("error");
+      }
+    }
+    
     const response = await sendToBackground<{ title: string; userId: string }, { success: boolean; session: RecordingSession }>(
       "START_RECORDING",
       { title, userId: userId || "anonymous" }
@@ -146,6 +181,16 @@ export function SidebarApp() {
     const response = await sendToBackground<unknown, { success: boolean; session: RecordingSession }>("STOP_RECORDING");
     if (response?.success && response.session) {
       setSession(response.session);
+      
+      // Update cloud recording status
+      if (cloudRecordingId) {
+        await updateRecordingStatus(
+          cloudRecordingId,
+          "completed",
+          elapsedTime,
+          response.session.steps.length
+        );
+      }
     }
   };
 
@@ -199,24 +244,73 @@ export function SidebarApp() {
     if (!session || session.steps.length === 0) return;
     
     setIsSaving(true);
+    setSyncStatus("syncing");
     
-    // TODO: Sync to Supabase
-    // For now, just store locally
-    await chrome.storage.local.set({ opstrace_session: session });
+    try {
+      // If authenticated and we have a cloud recording ID, sync steps
+      if (isAuthenticated && userId && cloudRecordingId) {
+        for (const step of session.steps) {
+          // Upload screenshot if exists
+          let screenshotUrl: string | undefined;
+          if (step.screenshotDataUrl) {
+            const url = await uploadScreenshot(
+              userId,
+              cloudRecordingId,
+              step.id,
+              step.screenshotDataUrl
+            );
+            if (url) screenshotUrl = url;
+          }
+          
+          // Create step in database
+          await createStep(cloudRecordingId, {
+            id: step.id,
+            order_number: step.orderNumber,
+            action_type: step.actionType,
+            instruction_text: step.instructionText,
+            screenshot_url: screenshotUrl,
+            url: step.url,
+            has_warning: step.hasWarning,
+            is_redacted: step.isRedacted,
+          });
+        }
+        
+        setSyncStatus("synced");
+        alert("Recording saved to cloud!");
+      } else {
+        // Store locally only
+        await chrome.storage.local.set({ opstrace_session: session });
+        alert("Recording saved locally. Log in to sync to cloud.");
+      }
+    } catch (error) {
+      console.error("[Sidebar] Save error:", error);
+      setSyncStatus("error");
+      alert("Failed to save. Recording stored locally.");
+      await chrome.storage.local.set({ opstrace_session: session });
+    }
     
     setIsSaving(false);
-    alert("Recording saved locally! Cloud sync coming soon.");
   };
 
   const convertToSOP = async () => {
     await saveRecording();
-    alert("SOP creation coming soon!");
+    
+    if (cloudRecordingId && isAuthenticated) {
+      // Open the web app to convert
+      chrome.tabs.create({
+        url: `${window.location.origin}/recordings`,
+      });
+    } else {
+      alert("Log in to convert recordings to SOPs in the web app.");
+    }
   };
 
   const newRecording = () => {
     setSession(null);
     setTitle("Untitled Recording");
     setElapsedTime(0);
+    setCloudRecordingId(null);
+    setSyncStatus("idle");
     chrome.storage.local.remove("opstrace_session");
   };
 
@@ -237,7 +331,10 @@ export function SidebarApp() {
         <span className={`recording-indicator ${isRecording && !isPaused ? "active" : ""}`} />
         <span className="recording-timer">{formatTime(elapsedTime)}</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
+        {syncStatus === "synced" && <span style={{ fontSize: 10, color: "#22c55e" }}>☁️ Synced</span>}
+        {syncStatus === "syncing" && <span style={{ fontSize: 10, color: "#eab308" }}>⏳ Syncing...</span>}
+        {syncStatus === "error" && <span style={{ fontSize: 10, color: "#ef4444" }}>⚠️ Local only</span>}
+        <span style={{ fontSize: 12, color: "var(--muted-foreground)", marginLeft: 8 }}>
           {steps.length} step{steps.length !== 1 ? "s" : ""}
         </span>
       </div>

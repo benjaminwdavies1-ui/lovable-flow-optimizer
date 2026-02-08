@@ -15,6 +15,24 @@ import { generateInstruction } from "./content/click-tracker";
 let currentSession: RecordingSession | null = null;
 
 /**
+ * Ensure content script is injected into a tab
+ */
+async function ensureContentScriptInjected(tabId: number): Promise<boolean> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content/content-script.js"],
+    });
+    console.log("[Background] Content script injected into tab:", tabId);
+    return true;
+  } catch (error) {
+    // Script may already be injected, or tab doesn't support injection
+    console.log("[Background] Content script injection result:", error);
+    return false;
+  }
+}
+
+/**
  * Initialize the background service worker
  */
 function init(): void {
@@ -88,6 +106,15 @@ async function handleStartRecording(
   sendResponse: (response?: unknown) => void
 ): Promise<void> {
   try {
+    // Get active tab and inject content script first
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      console.log("[Background] Injecting content script into active tab:", tab.id, tab.url);
+      await ensureContentScriptInjected(tab.id);
+    } else {
+      console.warn("[Background] No active tab found for content script injection");
+    }
+
     currentSession = {
       id: crypto.randomUUID(),
       title: payload.title,
@@ -99,6 +126,7 @@ async function handleStartRecording(
 
     // Notify all content scripts
     await broadcastToTabs("START_RECORDING", {});
+    console.log("[Background] Recording started, broadcast sent to all tabs");
 
     // Store session
     await chrome.storage.local.set({ opstrace_session: currentSession });

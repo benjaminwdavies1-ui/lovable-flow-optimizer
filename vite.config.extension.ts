@@ -8,10 +8,11 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      name: "copy-manifest",
+      name: "copy-manifest-and-assets",
       writeBundle() {
         const distDir = "extension/dist";
         const iconsDir = `${distDir}/icons`;
+        const sidebarDir = `${distDir}/sidebar`;
 
         // Ensure directories exist
         if (!existsSync(distDir)) {
@@ -20,13 +21,23 @@ export default defineConfig({
         if (!existsSync(iconsDir)) {
           mkdirSync(iconsDir, { recursive: true });
         }
+        if (!existsSync(sidebarDir)) {
+          mkdirSync(sidebarDir, { recursive: true });
+        }
 
         // Copy manifest.json
         copyFileSync("extension/manifest.json", `${distDir}/manifest.json`);
 
-        // Note: Icons need to be added manually or generated
+        // Copy icons
+        const iconSizes = ["16", "32", "48", "128"];
+        iconSizes.forEach((size) => {
+          const iconPath = `extension/icons/icon${size}.png`;
+          if (existsSync(iconPath)) {
+            copyFileSync(iconPath, `${iconsDir}/icon${size}.png`);
+          }
+        });
+
         console.log("[Build] Extension files copied to extension/dist/");
-        console.log("[Build] Remember to add icon files to extension/dist/icons/");
       },
     },
   ],
@@ -35,7 +46,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        sidebar: path.resolve(__dirname, "extension/sidebar/index.html"),
+        "sidebar/index": path.resolve(__dirname, "extension/sidebar/index.html"),
         background: path.resolve(__dirname, "extension/background.ts"),
         "content/content-script": path.resolve(
           __dirname,
@@ -51,10 +62,19 @@ export default defineConfig({
           if (chunkInfo.name === "content/content-script") {
             return "content/content-script.js";
           }
+          if (chunkInfo.name === "sidebar/index") {
+            return "sidebar/index.js";
+          }
           return "[name].js";
         },
         chunkFileNames: "chunks/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash][extname]",
+        assetFileNames: (assetInfo) => {
+          // Keep CSS in sidebar folder for the sidebar
+          if (assetInfo.name?.endsWith(".css")) {
+            return "sidebar/[name]-[hash][extname]";
+          }
+          return "assets/[name]-[hash][extname]";
+        },
       },
     },
     // Don't minify for easier debugging during development

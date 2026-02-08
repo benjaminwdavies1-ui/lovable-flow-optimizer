@@ -14,13 +14,14 @@ let lastClickPosition: { x: number; y: number } | null = null;
  * Initialize the content script
  */
 function init(): void {
-  console.log("[Opstrace] Content script loaded");
+  console.log("[Opstrace] Content script loaded on:", window.location.href);
 
   // Listen for messages from background/sidebar
   chrome.runtime.onMessage.addListener(handleMessage);
 
   // Set up event listeners
   setupEventListeners();
+  console.log("[Opstrace] Event listeners attached - ready to capture interactions");
 }
 
 /**
@@ -31,27 +32,33 @@ function handleMessage(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response?: unknown) => void
 ): boolean {
+  console.log("[Opstrace] Received message:", message.type);
+  
   switch (message.type) {
     case "START_RECORDING":
       isRecording = true;
+      console.log("[Opstrace] Recording STARTED - now capturing interactions");
       showRecordingIndicator();
       sendResponse({ success: true });
       break;
 
     case "STOP_RECORDING":
       isRecording = false;
+      console.log("[Opstrace] Recording STOPPED");
       hideRecordingIndicator();
       sendResponse({ success: true });
       break;
 
     case "PAUSE_RECORDING":
       isRecording = false;
+      console.log("[Opstrace] Recording PAUSED");
       updateRecordingIndicator("paused");
       sendResponse({ success: true });
       break;
 
     case "RESUME_RECORDING":
       isRecording = true;
+      console.log("[Opstrace] Recording RESUMED");
       updateRecordingIndicator("recording");
       sendResponse({ success: true });
       break;
@@ -81,6 +88,8 @@ function setupEventListeners(): void {
  * Handle click events
  */
 function handleClick(event: MouseEvent): void {
+  console.log("[Opstrace] Click detected, isRecording:", isRecording);
+  
   if (!isRecording) return;
 
   const target = event.target as HTMLElement;
@@ -89,6 +98,8 @@ function handleClick(event: MouseEvent): void {
   lastClickPosition = getClickPosition(event);
   const elementInfo = getElementDescription(target);
   const actionType = detectActionType(target);
+
+  console.log("[Opstrace] Capturing click:", { actionType, elementInfo, url: window.location.href });
 
   // Send captured step to background
   const payload: CaptureStepPayload = {

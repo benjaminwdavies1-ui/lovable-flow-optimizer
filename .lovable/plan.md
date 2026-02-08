@@ -1,177 +1,152 @@
 
-# Launch Readiness: Connect All Pages to Real Data + Convert to SOP
 
-This plan covers connecting all pages to real database data and implementing the "Convert to SOP" feature to make the platform production-ready.
+# Debug Plan: Chrome Extension Step Capture Not Working
 
-## Overview
+## Problem Summary
 
-Currently, the Dashboard, Recordings list, and SOPs list pages display hardcoded mock data. The "Convert to SOP" button exists but isn't fully implemented. This plan will:
+After clicking "Start Recording" in the extension sidebar and interacting with a webpage, no steps are appearing. This indicates a breakdown in the communication chain between the **content script**, **background worker**, and **sidebar**.
 
-1. Replace all mock data with real database queries
-2. Implement the Convert to SOP feature
-3. Add delete functionality for recordings and SOPs
-4. Add proper loading and empty states
+---
 
-## Phase 1: SOP Service Layer
+## Root Cause Analysis
 
-Create a new service file to handle all SOP-related database operations, similar to the existing `recordingService.ts`.
+After reviewing the extension code, I've identified **two critical issues**:
 
-**New file: `src/services/sopService.ts`**
+### Issue 1: Content Script Not Receiving Recording State
 
-Functions to implement:
-- `getUserSOPs()` - Fetch all SOPs for the current user
-- `getSOPWithSteps(sopId)` - Fetch a single SOP with its steps
-- `createSOPFromRecording(recordingId, userId)` - Convert a recording into an SOP
-- `createSOP(title, description, userId)` - Create a new blank SOP
-- `updateSOP(sopId, updates)` - Update SOP details
-- `deleteSOP(sopId)` - Delete an SOP and its steps
-- `createSOPStep(step)` - Add a step to an SOP
-- `updateSOPStep(stepId, updates)` - Update a step
-- `deleteSOPStep(stepId)` - Delete a step
-- `getSOPStepCount(sopId)` - Get step count for an SOP
+The content script (`content-script.ts`) starts with `isRecording = false` and only updates this when it receives a `START_RECORDING` message. However, the `broadcastToTabs` function in the background worker may fail silently because:
 
-## Phase 2: Recordings Page - Real Data
+- Content scripts might not be injected on pages loaded **before** the extension was installed/enabled
+- The content script may not have been re-injected after the extension was loaded into Chrome
 
-Update `src/pages/Recordings.tsx` to:
-- Fetch recordings from database using `getUserRecordings()`
-- Add loading state with skeleton/spinner
-- Add empty state when no recordings exist
-- Implement delete recording functionality
-- Add "Resume" navigation for in-progress recordings
-- Wire up "Convert to SOP" button
+### Issue 2: Content Script Messaging Flow
 
-**Key changes:**
-- Replace `mockRecordings` with `useState` + `useEffect` data fetching
-- Add `useAuth()` hook for user context
-- Format duration from `duration_seconds` to "MM:SS" string
-- Map database `status` field to UI status config
+When you click "Start Recording":
+1. Sidebar sends `START_RECORDING` to background
+2. Background calls `broadcastToTabs("START_RECORDING")` to notify content scripts
+3. Content script should set `isRecording = true`
+4. When you interact with the page, content script sends `CAPTURE_STEP` to background
+5. Background creates the step and sends `STEP_CAPTURED` back to sidebar
 
-## Phase 3: SOPs Page - Real Data
+**The problem**: If the content script wasn't injected on the current tab, or if the tab was opened before the extension was loaded, steps 3-5 never happen.
 
-Update `src/pages/SOPs.tsx` to:
-- Fetch SOPs from database using `getUserSOPs()`
-- Add loading state with skeleton/spinner
-- Add empty state when no SOPs exist
-- Implement delete SOP functionality
-- Count steps from `sop_steps` table (or store in `sops` table)
+---
 
-**Key changes:**
-- Replace `mockSOPs` with real data fetch
-- Add step count via joined query or separate count
-- Handle draft vs published status
+## Debugging Steps to Confirm
 
-## Phase 4: Dashboard - Real Statistics
+### Step 1: Check if Content Script is Loaded (User Action)
 
-Update `src/pages/Dashboard.tsx` to:
-- Fetch real counts and statistics from database
-- Calculate total recordings count
-- Calculate total SOPs count
-- Calculate total time documented (sum of `duration_seconds`)
-- Calculate average steps per SOP
-- Fetch recent 3 recordings and 2 SOPs
+On the target webpage (e.g., Google Docs):
+1. Open Chrome DevTools (F12)
+2. Go to **Console** tab
+3. Look for: `[Opstrace] Content script loaded`
 
-**Statistics to calculate:**
-- Total Recordings: `SELECT COUNT(*) FROM recordings WHERE user_id = ?`
-- SOPs Created: `SELECT COUNT(*) FROM sops WHERE user_id = ?`
-- Time Documented: `SELECT SUM(duration_seconds) FROM recordings WHERE user_id = ?`
-- Avg Steps per SOP: Calculate from steps count and SOP count
+If you **don't see this message**, the content script isn't running on that page.
 
-## Phase 5: Convert to SOP Feature
+### Step 2: Check Background Script Console
 
-Implement the complete conversion flow in `src/pages/RecordingNew.tsx`:
+1. Go to `chrome://extensions/`
+2. Find "Opstrace SOP Creator"
+3. Click **"Service worker"** link to open the background console
+4. Look for messages like:
+   - `[Opstrace] Background service worker started`
+   - `[Background] Received message: START_RECORDING`
 
-1. When "Convert to SOP" is clicked:
-   - Save the recording (already implemented)
-   - Create a new SOP record linked to the recording
-   - Copy all steps from `steps` table to `sop_steps` table
-   - Mark recording status as "converted"
-   - Navigate to the new SOP edit page
+### Step 3: Verify Tab Communication
 
-2. Add Convert to SOP action in Recordings list page:
-   - When clicking "Convert to SOP" from dropdown
-   - Perform same conversion logic
-   - Navigate to SOP view/edit
+In the background console, after clicking "Start Recording", you should see:
+- `[Background] Received message: START_RECORDING`
 
-**Database flow:**
+If you interact with a page and see **no** `CAPTURE_STEP` messages, the content script isn't communicating.
+
+---
+
+## Implementation Fixes
+
+### Fix 1: Force Inject Content Script on Recording Start
+
+Modify the `handleStartRecording` function in `background.ts` to programmatically inject the content script into the active tab, ensuring it's always present when recording starts.
+
 ```text
-steps (recording_id: X) --> sop_steps (sop_id: Y)
-recordings.status --> "converted"
-sops.recording_id --> X
+Location: extension/background.ts
+Change: In handleStartRecording(), add chrome.scripting.executeScript() 
+        to inject content script into active tab before broadcasting
 ```
 
-## Phase 6: SOP View Page - Real Data
+### Fix 2: Add Content Script Injection Helper
 
-Update `src/pages/SOPView.tsx` to:
-- Fetch SOP by ID using `getSOPWithSteps(id)`
-- Display real step data
-- Show proper author info from profiles table (if linked)
-- Handle loading and not-found states
+Create a function that uses the `chrome.scripting` API to inject the content script dynamically:
 
-## Phase 7: Add Recording Delete Service
+```typescript
+async function ensureContentScriptInjected(tabId: number): Promise<void> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content/content-script.js"],
+    });
+  } catch (error) {
+    // Script may already be injected, which throws an error
+    console.log("[Background] Content script injection:", error);
+  }
+}
+```
 
-Add to `src/services/recordingService.ts`:
-- `deleteRecording(recordingId)` - Delete recording and all its steps
+### Fix 3: Inject on Active Tab When Starting Recording
+
+Update `handleStartRecording` to get the active tab and ensure the content script is injected:
+
+```typescript
+async function handleStartRecording(...) {
+  // Get active tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) {
+    await ensureContentScriptInjected(tab.id);
+  }
+  
+  // ... rest of recording logic
+}
+```
+
+### Fix 4: Add Debug Logging
+
+Add more detailed console logging to help trace issues:
+- Log when content script receives messages
+- Log when content script detects clicks/interactions
+- Log the step payload being sent
+
+---
+
+## File Changes Summary
+
+| File | Change |
+|------|--------|
+| `extension/background.ts` | Add `ensureContentScriptInjected()` helper and call it in `handleStartRecording()` |
+| `extension/content/content-script.ts` | Add more verbose logging for debugging |
 
 ---
 
 ## Technical Details
 
-### Database Queries Summary
+### Why This Happens
 
-**Recordings with count:**
-```sql
-SELECT *, 
-  (SELECT COUNT(*) FROM steps WHERE recording_id = recordings.id) as step_count
-FROM recordings 
-WHERE user_id = $1 
-ORDER BY created_at DESC
-```
+Chrome's Manifest V3 content script injection has limitations:
+- Content scripts declared in `manifest.json` only inject into **new tabs** opened after the extension loads
+- Tabs that were already open when you loaded the extension (via "Load unpacked") don't get the content script automatically
+- You must either reload those tabs or use `chrome.scripting.executeScript()` to inject dynamically
 
-**SOPs with step count:**
-```sql
-SELECT sops.*, 
-  (SELECT COUNT(*) FROM sop_steps WHERE sop_id = sops.id) as step_count
-FROM sops 
-WHERE user_id = $1 
-ORDER BY updated_at DESC
-```
+### The Fix Approach
 
-**Dashboard statistics:**
-```sql
--- Total recordings
-SELECT COUNT(*) FROM recordings WHERE user_id = $1
+By using `chrome.scripting.executeScript()` when recording starts, we guarantee the content script is present on the active tab regardless of when that tab was opened.
 
--- Total SOPs  
-SELECT COUNT(*) FROM sops WHERE user_id = $1
+---
 
--- Total duration
-SELECT COALESCE(SUM(duration_seconds), 0) FROM recordings WHERE user_id = $1
-```
+## Quick Test After Fix
 
-### Files to Create
-1. `src/services/sopService.ts` - SOP database operations
+1. Rebuild the extension: `npx vite build --config vite.config.extension.ts`
+2. Copy icons: `cp -r extension/icons extension/dist/`
+3. In `chrome://extensions/`, click the refresh icon on the extension
+4. Open a new tab to any website
+5. Open the sidebar and click "Start Recording"
+6. Click on elements on the page
+7. Steps should now appear in the sidebar
 
-### Files to Modify
-1. `src/pages/Recordings.tsx` - Real data + delete + convert
-2. `src/pages/SOPs.tsx` - Real data + delete
-3. `src/pages/Dashboard.tsx` - Real statistics
-4. `src/pages/RecordingNew.tsx` - Complete Convert to SOP
-5. `src/pages/SOPView.tsx` - Real data
-6. `src/services/recordingService.ts` - Add delete function
-7. `src/components/dashboard/RecentRecordings.tsx` - Update interface for real data
-8. `src/components/dashboard/RecentSOPs.tsx` - Update interface for real data
-
-### Loading & Error States
-- Use `Skeleton` components during loading
-- Show toast notifications for errors
-- Empty state cards when no data exists
-
-## Implementation Order
-
-1. Create SOP service layer (foundation for everything else)
-2. Update Recordings page (most visible change)
-3. Implement Convert to SOP in RecordingNew
-4. Update SOPs page
-5. Update SOPView page
-6. Update Dashboard with real stats
-7. Test complete flow end-to-end

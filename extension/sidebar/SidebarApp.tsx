@@ -89,7 +89,7 @@ export function SidebarApp() {
     loadSession();
     loadAuthState();
     
-    // Listen for step captures
+    // Listen for step captures from background
     const handleMessage = (message: { type: string; payload?: { step?: CapturedStep } }) => {
       if (message.type === "STEP_CAPTURED" && message.payload?.step) {
         setSession((prev) => {
@@ -102,8 +102,22 @@ export function SidebarApp() {
       }
     };
     
+    // Listen for storage changes as a reliable fallback for session updates
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+      if (area === "local" && changes.opstrace_session?.newValue) {
+        const updatedSession = changes.opstrace_session.newValue as RecordingSession;
+        console.log("[Sidebar] Session updated via storage:", updatedSession.isRecording, updatedSession.steps.length);
+        setSession(updatedSession);
+      }
+    };
+    
     chrome.runtime.onMessage.addListener(handleMessage);
-    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+    chrome.storage.onChanged.addListener(handleStorageChange);
+    
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
   }, []);
 
   // Timer
@@ -159,18 +173,36 @@ export function SidebarApp() {
   };
 
   const startRecording = async () => {
-    // Start recording in background FIRST (most important)
-    const response = await sendToBackground<{ title: string; userId: string }, { success: boolean; session: RecordingSession }>(
-      "START_RECORDING",
-      { title, userId: userId || "anonymous" }
-    );
+    console.log("[Sidebar] Starting recording...");
+    
+    // Start recording in background
+    let response: { success?: boolean; session?: RecordingSession } | undefined;
+    try {
+      response = await sendToBackground<{ title: string; userId: string }, { success: boolean; session: RecordingSession }>(
+        "START_RECORDING",
+        { title, userId: userId || "anonymous" }
+      );
+      console.log("[Sidebar] Background response:", response);
+    } catch (err) {
+      console.error("[Sidebar] sendToBackground threw:", err);
+    }
     
     if (response?.success && response.session) {
       setSession(response.session);
       setElapsedTime(0);
     } else {
-      console.error("[Sidebar] Failed to start recording:", response);
-      return; // Don't proceed if recording didn't start
+      // Fallback: wait briefly then check storage directly
+      console.warn("[Sidebar] No response from background, checking storage...");
+      await new Promise((r) => setTimeout(r, 500));
+      const stored = await chrome.storage.local.get("opstrace_session");
+      if (stored.opstrace_session?.isRecording) {
+        console.log("[Sidebar] Found session in storage, using it");
+        setSession(stored.opstrace_session);
+        setElapsedTime(0);
+      } else {
+        console.error("[Sidebar] Recording failed to start");
+        return;
+      }
     }
 
     // Then try cloud sync (non-blocking)

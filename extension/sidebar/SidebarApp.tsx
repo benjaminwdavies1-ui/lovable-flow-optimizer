@@ -59,6 +59,13 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
+const HomeIcon = () => (
+  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+
 const VideoIcon = () => (
   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <polygon points="23 7 16 12 23 17 23 7" />
@@ -152,20 +159,7 @@ export function SidebarApp() {
   };
 
   const startRecording = async () => {
-    // Create recording in Supabase if authenticated
-    let recordingId: string | null = null;
-    if (isAuthenticated && userId) {
-      setSyncStatus("syncing");
-      const cloudRecording = await createRecording(title, userId);
-      if (cloudRecording) {
-        recordingId = cloudRecording.id;
-        setCloudRecordingId(recordingId);
-        setSyncStatus("synced");
-      } else {
-        setSyncStatus("error");
-      }
-    }
-    
+    // Start recording in background FIRST (most important)
     const response = await sendToBackground<{ title: string; userId: string }, { success: boolean; session: RecordingSession }>(
       "START_RECORDING",
       { title, userId: userId || "anonymous" }
@@ -174,6 +168,26 @@ export function SidebarApp() {
     if (response?.success && response.session) {
       setSession(response.session);
       setElapsedTime(0);
+    } else {
+      console.error("[Sidebar] Failed to start recording:", response);
+      return; // Don't proceed if recording didn't start
+    }
+
+    // Then try cloud sync (non-blocking)
+    if (isAuthenticated && userId) {
+      setSyncStatus("syncing");
+      try {
+        const cloudRecording = await createRecording(title, userId);
+        if (cloudRecording) {
+          setCloudRecordingId(cloudRecording.id);
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("error");
+        }
+      } catch (err) {
+        console.warn("[Sidebar] Cloud sync failed:", err);
+        setSyncStatus("error");
+      }
     }
   };
 
@@ -322,8 +336,22 @@ export function SidebarApp() {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {/* Header */}
       <div className="sidebar-header">
-        <h1>Opstrace SOP Creator</h1>
-        <p>Capture your workflow step by step</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1>Opstrace SOP Creator</h1>
+            <p>Capture your workflow step by step</p>
+          </div>
+          <button
+            className="btn btn-outline"
+            style={{ padding: "6px 10px", fontSize: 12 }}
+            onClick={() => {
+              chrome.tabs.create({ url: "https://id-preview--e0b633b5-43b9-4ea8-ab11-a84491b1e3e7.lovable.app/" });
+            }}
+            title="Open Dashboard"
+          >
+            <HomeIcon /> Dashboard
+          </button>
+        </div>
       </div>
 
       {/* Recording Status */}

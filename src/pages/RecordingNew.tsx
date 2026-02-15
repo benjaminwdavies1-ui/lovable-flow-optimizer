@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Video, Square, Save, FileText, Clock, Loader2 } from "lucide-react";
+import { Video, Square, Save, FileText, Clock, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useScreenCapture } from "@/hooks/useScreenCapture";
@@ -267,6 +267,9 @@ export default function RecordingNew() {
       description="Capture your workflow step by step with automatic screenshots"
       actions={
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           {steps.length > 0 && (
             <>
               <Button variant="outline" onClick={handleSave} disabled={isSaving}>

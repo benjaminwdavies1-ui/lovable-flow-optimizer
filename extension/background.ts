@@ -5,11 +5,39 @@ import type {
   CapturedStep,
   CaptureStepPayload,
   StartRecordingPayload,
+  ClickedElement,
   AuthState,
   STORAGE_KEYS,
 } from "./shared/types";
 import { broadcastToTabs, getActiveTab } from "./shared/messaging";
-import { generateInstruction } from "./content/click-tracker";
+
+/**
+ * Generate human-readable instruction from element info (inlined to avoid
+ * sharing a chunk with the content script, which breaks code-splitting)
+ */
+function generateInstruction(actionType: string, element: ClickedElement): string {
+  const elementText = element.text || "element";
+  const tagName = element.tagName;
+
+  switch (actionType) {
+    case "click":
+      if (tagName === "button") return `Click the "${elementText}" button`;
+      if (tagName === "a") return `Click the "${elementText}" link`;
+      if (tagName === "input" && element.type === "checkbox") return `Check the "${elementText}" checkbox`;
+      if (tagName === "input" && element.type === "radio") return `Select the "${elementText}" option`;
+      return `Click on "${elementText}"`;
+    case "type": {
+      const fieldName = element.text || element.placeholder || "field";
+      return `Type in the "${fieldName}" field`;
+    }
+    case "navigate":
+      return `Navigate to ${elementText}`;
+    case "scroll":
+      return `Scroll to view "${elementText}"`;
+    default:
+      return elementText ? `Interact with "${elementText}"` : "";
+  }
+}
 
 // Current session state
 let currentSession: RecordingSession | null = null;

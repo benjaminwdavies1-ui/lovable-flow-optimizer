@@ -224,9 +224,34 @@ export function SidebarApp() {
   };
 
   const stopRecording = async () => {
-    const response = await sendToBackground<unknown, { success: boolean; session: RecordingSession }>("STOP_RECORDING");
-    if (response?.success && response.session) {
-      setSession(response.session);
+    console.log("[Sidebar] Stopping recording...");
+    
+    let response: { success?: boolean; session?: RecordingSession } | undefined;
+    try {
+      response = await sendToBackground<unknown, { success: boolean; session: RecordingSession }>("STOP_RECORDING");
+      console.log("[Sidebar] Stop response:", response);
+    } catch (err) {
+      console.error("[Sidebar] Stop sendToBackground threw:", err);
+    }
+    
+    let finalSession = response?.session;
+    
+    if (!finalSession) {
+      // Fallback: read from storage
+      console.warn("[Sidebar] No stop response, checking storage...");
+      await new Promise((r) => setTimeout(r, 500));
+      const stored = await chrome.storage.local.get("opstrace_session");
+      if (stored.opstrace_session) {
+        finalSession = stored.opstrace_session as RecordingSession;
+      }
+    }
+    
+    if (finalSession) {
+      // Ensure stopped state
+      finalSession.isRecording = false;
+      finalSession.isPaused = false;
+      setSession(finalSession);
+      await chrome.storage.local.set({ opstrace_session: finalSession });
       
       // Update cloud recording status
       if (cloudRecordingId) {
@@ -234,9 +259,11 @@ export function SidebarApp() {
           cloudRecordingId,
           "completed",
           elapsedTime,
-          response.session.steps.length
+          finalSession.steps.length
         );
       }
+    } else {
+      console.error("[Sidebar] Failed to stop recording");
     }
   };
 

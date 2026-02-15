@@ -15,27 +15,27 @@ export default defineConfig({
         const sidebarDir = `${distDir}/sidebar`;
 
         // Ensure directories exist
-        if (!existsSync(distDir)) {
-          mkdirSync(distDir, { recursive: true });
-        }
-        if (!existsSync(iconsDir)) {
-          mkdirSync(iconsDir, { recursive: true });
-        }
-        if (!existsSync(sidebarDir)) {
-          mkdirSync(sidebarDir, { recursive: true });
-        }
+        [distDir, iconsDir, sidebarDir].forEach((dir) => {
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        });
 
         // Copy manifest.json
         copyFileSync("extension/manifest.json", `${distDir}/manifest.json`);
 
         // Copy icons
-        const iconSizes = ["16", "32", "48", "128"];
-        iconSizes.forEach((size) => {
+        ["16", "32", "48", "128"].forEach((size) => {
           const iconPath = `extension/icons/icon${size}.png`;
           if (existsSync(iconPath)) {
             copyFileSync(iconPath, `${iconsDir}/icon${size}.png`);
           }
         });
+
+        // Fix sidebar HTML location - Vite nests it under extension/sidebar/
+        const nestedHtml = `${distDir}/extension/sidebar/index.html`;
+        const targetHtml = `${sidebarDir}/index.html`;
+        if (existsSync(nestedHtml) && !existsSync(targetHtml)) {
+          copyFileSync(nestedHtml, targetHtml);
+        }
 
         console.log("[Build] Extension files copied to extension/dist/");
       },

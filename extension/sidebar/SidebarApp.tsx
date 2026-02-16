@@ -375,6 +375,36 @@ export function SidebarApp() {
   const isPaused = session?.isPaused || false;
   const steps = session?.steps || [];
 
+  // Auth gate: require login to use the tool
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <div className="sidebar-header">
+          <h1>Opstrace SOP Creator</h1>
+          <p>Capture your workflow step by step</p>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", textAlign: "center", gap: "16px" }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          </div>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Sign in required</h2>
+          <p style={{ fontSize: 13, color: "var(--muted-foreground)", margin: 0 }}>
+            Log in to the Opstrace web app to start capturing and converting recordings into SOPs.
+          </p>
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 8 }}
+            onClick={() => {
+              chrome.tabs.create({ url: "https://id-preview--e0b633b5-43b9-4ea8-ab11-a84491b1e3e7.lovable.app/auth" });
+            }}
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {/* Header */}

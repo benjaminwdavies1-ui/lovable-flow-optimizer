@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.suggest-automations]
 verify_jwt = false
+
+[functions.segment-processes]
+verify_jwt = false

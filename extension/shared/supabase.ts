@@ -246,6 +246,7 @@ export async function updateRecordingStatus(
   durationSeconds?: number,
   stepCount?: number
 ): Promise<boolean> {
+  // ... keep existing code
   try {
     const updates: Record<string, unknown> = { status };
     if (status === "completed") {
@@ -272,5 +273,100 @@ export async function updateRecordingStatus(
   } catch (error) {
     console.error("[Extension] Update recording failed:", error);
     return false;
+  }
+}
+
+// ==================== Continuous Monitoring Helpers ====================
+
+import type { ActivityEvent, ProcessCluster } from "./types";
+
+// Batch insert activity events
+export async function batchInsertActivityEvents(
+  userId: string,
+  events: ActivityEvent[]
+): Promise<boolean> {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const rows = events.map((e) => ({
+      user_id: userId,
+      action_type: e.action_type,
+      url: e.url,
+      element_info: e.element_info,
+      timestamp: new Date(e.timestamp).toISOString(),
+      session_date: today,
+    }));
+
+    const { error } = await supabase.from("activity_events").insert(rows);
+    if (error) {
+      console.error("[Extension] Batch insert activity events error:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[Extension] Batch insert failed:", error);
+    return false;
+  }
+}
+
+// Fetch today's process clusters
+export async function fetchTodayClusters(): Promise<ProcessCluster[]> {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const { data, error } = await supabase
+      .from("process_clusters")
+      .select("*")
+      .gte("created_at", today)
+      .order("start_time", { ascending: true });
+
+    if (error) {
+      console.error("[Extension] Fetch clusters error:", error);
+      return [];
+    }
+    return (data || []) as ProcessCluster[];
+  } catch (error) {
+    console.error("[Extension] Fetch clusters failed:", error);
+    return [];
+  }
+}
+
+// Update cluster status (confirm/dismiss)
+export async function updateClusterStatus(
+  clusterId: string,
+  status: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("process_clusters")
+      .update({ status })
+      .eq("id", clusterId);
+
+    if (error) {
+      console.error("[Extension] Update cluster error:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[Extension] Update cluster failed:", error);
+    return false;
+  }
+}
+
+// Fetch today's event count
+export async function fetchTodayEventCount(): Promise<number> {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const { count, error } = await supabase
+      .from("activity_events")
+      .select("id", { count: "exact", head: true })
+      .eq("session_date", today);
+
+    if (error) {
+      console.error("[Extension] Event count error:", error);
+      return 0;
+    }
+    return count || 0;
+  } catch (error) {
+    console.error("[Extension] Event count failed:", error);
+    return 0;
   }
 }

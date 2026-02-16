@@ -22,6 +22,17 @@ function init(): void {
   // Set up event listeners
   setupEventListeners();
   console.log("[Opstrace] Event listeners attached - ready to capture interactions");
+
+  // Check if a recording is already in progress (handles race condition
+  // where the broadcast arrives before this listener is registered)
+  chrome.storage.local.get("opstrace_session").then((result) => {
+    const session = result.opstrace_session;
+    if (session?.isRecording && !session.isPaused) {
+      console.log("[Opstrace] Recording already active on init - enabling capture");
+      isRecording = true;
+      showRecordingIndicator();
+    }
+  });
 }
 
 /**

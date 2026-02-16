@@ -643,6 +643,19 @@ export function SidebarApp() {
                       <span>{sop.step_count} steps</span>
                       <span>{formatDate(sop.updated_at)}</span>
                     </div>
+                    {((sop as any).employee_tags?.length > 0 || (sop as any).department_tags?.length > 0 || (sop as any).tools_tags?.length > 0) && (
+                      <div className="sop-tags">
+                        {(sop as any).employee_tags?.map((tag: string) => (
+                          <span key={`e-${tag}`} className="sop-tag employee">{tag}</span>
+                        ))}
+                        {(sop as any).department_tags?.map((tag: string) => (
+                          <span key={`d-${tag}`} className="sop-tag department">{tag}</span>
+                        ))}
+                        {(sop as any).tools_tags?.map((tag: string) => (
+                          <span key={`t-${tag}`} className="sop-tag tools">{tag}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <span className={`sop-chevron ${expandedSops.has(sop.id) ? "open" : ""}`}>
                     <ChevronDownIcon />

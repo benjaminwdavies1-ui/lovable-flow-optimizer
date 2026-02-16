@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_events: {
+        Row: {
+          action_type: string
+          cluster_id: string | null
+          created_at: string
+          element_info: Json | null
+          id: string
+          screenshot_url: string | null
+          session_date: string
+          timestamp: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type?: string
+          cluster_id?: string | null
+          created_at?: string
+          element_info?: Json | null
+          id?: string
+          screenshot_url?: string | null
+          session_date?: string
+          timestamp?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          cluster_id?: string | null
+          created_at?: string
+          element_info?: Json | null
+          id?: string
+          screenshot_url?: string | null
+          session_date?: string
+          timestamp?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "process_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_recommendations: {
         Row: {
           affected_processes: string[] | null
@@ -139,6 +186,48 @@ export type Database = {
           source_ids?: string[] | null
           title?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      process_clusters: {
+        Row: {
+          confidence_score: number | null
+          converted_to_recording_id: string | null
+          created_at: string
+          description: string | null
+          end_time: string | null
+          event_count: number
+          id: string
+          start_time: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          converted_to_recording_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          event_count?: number
+          id?: string
+          start_time?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          converted_to_recording_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          event_count?: number
+          id?: string
+          start_time?: string | null
+          status?: string
+          title?: string
           user_id?: string
         }
         Relationships: []

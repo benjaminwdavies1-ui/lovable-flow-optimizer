@@ -56,7 +56,10 @@ export type MessageType =
   | "CAPTURE_SCREENSHOT"
   | "SCREENSHOT_CAPTURED"
   | "AUTH_STATE_CHANGE"
-  | "SYNC_TO_CLOUD";
+  | "SYNC_TO_CLOUD"
+  | "TOGGLE_CONTINUOUS"
+  | "CONTINUOUS_CAPTURE"
+  | "CONTINUOUS_STATUS";
 
 export interface ExtensionMessage<T = unknown> {
   type: MessageType;
@@ -87,9 +90,38 @@ export interface AuthState {
   accessToken?: string;
 }
 
+// Activity event for continuous monitoring
+export interface ActivityEvent {
+  id: string;
+  action_type: string;
+  url: string;
+  element_info: {
+    text?: string;
+    tagName?: string;
+    type?: string;
+    selector?: string;
+  } | null;
+  timestamp: number;
+}
+
+// Process cluster detected by AI
+export interface ProcessCluster {
+  id: string;
+  title: string;
+  description: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  event_count: number;
+  confidence_score: number;
+  status: string;
+  created_at: string;
+}
+
 // Storage keys for chrome.storage
 export const STORAGE_KEYS = {
   SESSION: "opstrace_session",
   AUTH: "opstrace_auth",
   PENDING_STEPS: "opstrace_pending_steps",
+  CONTINUOUS_MODE: "opstrace_continuous",
+  CONTINUOUS_EVENTS: "opstrace_continuous_events",
 } as const;

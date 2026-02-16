@@ -8,6 +8,8 @@ import {
   createStep,
   updateRecordingStatus,
   uploadScreenshot,
+  fetchUserSOPs,
+  fetchSOPSteps,
 } from "../shared/supabase";
 // Icons as inline SVGs for the extension
 const PlayIcon = () => (
@@ -83,6 +85,11 @@ export function SidebarApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [cloudRecordingId, setCloudRecordingId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+  const [activeTab, setActiveTab] = useState<"record" | "sops">("record");
+  const [sops, setSops] = useState<Awaited<ReturnType<typeof fetchUserSOPs>>>([]);
+  const [sopsLoading, setSopsLoading] = useState(false);
+  const [expandedSops, setExpandedSops] = useState<Set<string>>(new Set());
+  const [sopStepsCache, setSopStepsCache] = useState<Record<string, Awaited<ReturnType<typeof fetchSOPSteps>>>>({});
 
   // Load session and auth state on mount
   useEffect(() => {
@@ -371,6 +378,38 @@ export function SidebarApp() {
     chrome.storage.local.remove("opstrace_session");
   };
 
+  // Load SOPs when switching to sops tab
+  useEffect(() => {
+    if (activeTab === "sops" && isAuthenticated) {
+      setSopsLoading(true);
+      fetchUserSOPs().then((data) => {
+        setSops(data);
+        setSopsLoading(false);
+      });
+    }
+  }, [activeTab, isAuthenticated]);
+
+  const toggleSopExpanded = async (sopId: string) => {
+    const next = new Set(expandedSops);
+    if (next.has(sopId)) {
+      next.delete(sopId);
+    } else {
+      next.add(sopId);
+      // Fetch steps if not cached
+      if (!sopStepsCache[sopId]) {
+        const steps = await fetchSOPSteps(sopId);
+        setSopStepsCache((prev) => ({ ...prev, [sopId]: steps }));
+      }
+    }
+    setExpandedSops(next);
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
   const isRecording = session?.isRecording || false;
   const isPaused = session?.isPaused || false;
   const steps = session?.steps || [];
@@ -427,134 +466,225 @@ export function SidebarApp() {
         </div>
       </div>
 
-      {/* Recording Status */}
-      <div className={`recording-status ${isRecording ? "active" : ""}`}>
-        <span className={`recording-indicator ${isRecording && !isPaused ? "active" : ""}`} />
-        <span className="recording-timer">{formatTime(elapsedTime)}</span>
-        <span style={{ flex: 1 }} />
-        {syncStatus === "synced" && <span style={{ fontSize: 10, color: "#22c55e" }}>☁️ Synced</span>}
-        {syncStatus === "syncing" && <span style={{ fontSize: 10, color: "#eab308" }}>⏳ Syncing...</span>}
-        {syncStatus === "error" && <span style={{ fontSize: 10, color: "#ef4444" }}>⚠️ Local only</span>}
-        <span style={{ fontSize: 12, color: "var(--muted-foreground)", marginLeft: 8 }}>
-          {steps.length} step{steps.length !== 1 ? "s" : ""}
-        </span>
+      {/* Tab Bar */}
+      <div className="tab-bar">
+        <button
+          className={`tab-btn ${activeTab === "record" ? "active" : ""}`}
+          onClick={() => setActiveTab("record")}
+        >
+          <VideoIcon /> Record
+        </button>
+        <button
+          className={`tab-btn ${activeTab === "sops" ? "active" : ""}`}
+          onClick={() => setActiveTab("sops")}
+        >
+          <FileTextIcon /> My SOPs
+        </button>
       </div>
 
-      {/* Title Input */}
-      {!isRecording && steps.length === 0 && (
-        <div className="title-input-container">
-          <input
-            type="text"
-            className="title-input"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Recording title..."
-          />
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="controls">
-        {!isRecording && steps.length === 0 ? (
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={startRecording}>
-            <PlayIcon /> Start Recording
-          </button>
-        ) : isRecording ? (
-          <>
-            {isPaused ? (
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={resumeRecording}>
-                <PlayIcon /> Resume
-              </button>
-            ) : (
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={pauseRecording}>
-                <PauseIcon /> Pause
-              </button>
-            )}
-            <button className="btn btn-destructive" onClick={stopRecording}>
-              <SquareIcon /> Stop
-            </button>
-          </>
-        ) : (
-          <>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={startRecording}>
-              <PlayIcon /> Resume Recording
-            </button>
-            <button className="btn btn-outline" onClick={newRecording}>
-              New
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Steps List */}
-      <div className="steps-list">
-        {steps.length === 0 ? (
-          <div className="steps-empty">
-            <VideoIcon />
-            <p>No steps captured yet</p>
-            <p style={{ fontSize: 12, marginTop: 4 }}>
-              {isRecording
-                ? "Interact with any webpage to capture steps"
-                : "Click Start Recording to begin"}
-            </p>
+      {activeTab === "record" ? (
+        <>
+          {/* Recording Status */}
+          <div className={`recording-status ${isRecording ? "active" : ""}`}>
+            <span className={`recording-indicator ${isRecording && !isPaused ? "active" : ""}`} />
+            <span className="recording-timer">{formatTime(elapsedTime)}</span>
+            <span style={{ flex: 1 }} />
+            {syncStatus === "synced" && <span style={{ fontSize: 10, color: "#22c55e" }}>☁️ Synced</span>}
+            {syncStatus === "syncing" && <span style={{ fontSize: 10, color: "#eab308" }}>⏳ Syncing...</span>}
+            {syncStatus === "error" && <span style={{ fontSize: 10, color: "#ef4444" }}>⚠️ Local only</span>}
+            <span style={{ fontSize: 12, color: "var(--muted-foreground)", marginLeft: 8 }}>
+              {steps.length} step{steps.length !== 1 ? "s" : ""}
+            </span>
           </div>
-        ) : (
-          steps.map((step) => (
-            <div key={step.id} className="step-card">
-              <div
-                className="step-card-header"
-                onClick={() => toggleStepExpanded(step.id)}
-              >
-                <span className="step-number">{step.orderNumber}</span>
-                <span className="step-instruction">{step.instructionText}</span>
-                <div className="step-actions">
-                  <button
-                    className="step-action-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStep(step.id);
-                    }}
-                  >
-                    <TrashIcon />
-                  </button>
-                  <button className="step-action-btn">
-                    <ChevronDownIcon />
-                  </button>
-                </div>
-              </div>
-              
-              {expandedSteps.has(step.id) && (
-                <div className="step-card-content">
-                  {step.screenshotDataUrl && (
-                    <img
-                      src={step.screenshotDataUrl}
-                      alt={`Step ${step.orderNumber}`}
-                      className="step-screenshot"
-                    />
-                  )}
-                  <textarea
-                    className="step-input"
-                    value={step.instructionText}
-                    onChange={(e) => updateStepInstruction(step.id, e.target.value)}
-                    rows={2}
-                    placeholder="Edit instruction..."
-                  />
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
 
-      {/* Action Bar */}
-      {steps.length > 0 && !isRecording && (
-        <div className="action-bar">
-          <button className="btn btn-outline" onClick={saveRecording} disabled={isSaving}>
-            <SaveIcon /> {isSaving ? "Saving..." : "Save"}
-          </button>
-          <button className="btn btn-primary" onClick={convertToSOP} disabled={isSaving}>
-            <FileTextIcon /> Convert to SOP
-          </button>
+          {/* Title Input */}
+          {!isRecording && steps.length === 0 && (
+            <div className="title-input-container">
+              <input
+                type="text"
+                className="title-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Recording title..."
+              />
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className="controls">
+            {!isRecording && steps.length === 0 ? (
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={startRecording}>
+                <PlayIcon /> Start Recording
+              </button>
+            ) : isRecording ? (
+              <>
+                {isPaused ? (
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={resumeRecording}>
+                    <PlayIcon /> Resume
+                  </button>
+                ) : (
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={pauseRecording}>
+                    <PauseIcon /> Pause
+                  </button>
+                )}
+                <button className="btn btn-destructive" onClick={stopRecording}>
+                  <SquareIcon /> Stop
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={startRecording}>
+                  <PlayIcon /> Resume Recording
+                </button>
+                <button className="btn btn-outline" onClick={newRecording}>
+                  New
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Steps List */}
+          <div className="steps-list">
+            {steps.length === 0 ? (
+              <div className="steps-empty">
+                <VideoIcon />
+                <p>No steps captured yet</p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>
+                  {isRecording
+                    ? "Interact with any webpage to capture steps"
+                    : "Click Start Recording to begin"}
+                </p>
+              </div>
+            ) : (
+              steps.map((step) => (
+                <div key={step.id} className="step-card">
+                  <div
+                    className="step-card-header"
+                    onClick={() => toggleStepExpanded(step.id)}
+                  >
+                    <span className="step-number">{step.orderNumber}</span>
+                    <span className="step-instruction">{step.instructionText}</span>
+                    <div className="step-actions">
+                      <button
+                        className="step-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeStep(step.id);
+                        }}
+                      >
+                        <TrashIcon />
+                      </button>
+                      <button className="step-action-btn">
+                        <ChevronDownIcon />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {expandedSteps.has(step.id) && (
+                    <div className="step-card-content">
+                      {step.screenshotDataUrl && (
+                        <img
+                          src={step.screenshotDataUrl}
+                          alt={`Step ${step.orderNumber}`}
+                          className="step-screenshot"
+                        />
+                      )}
+                      <textarea
+                        className="step-input"
+                        value={step.instructionText}
+                        onChange={(e) => updateStepInstruction(step.id, e.target.value)}
+                        rows={2}
+                        placeholder="Edit instruction..."
+                      />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Action Bar */}
+          {steps.length > 0 && !isRecording && (
+            <div className="action-bar">
+              <button className="btn btn-outline" onClick={saveRecording} disabled={isSaving}>
+                <SaveIcon /> {isSaving ? "Saving..." : "Save"}
+              </button>
+              <button className="btn btn-primary" onClick={convertToSOP} disabled={isSaving}>
+                <FileTextIcon /> Convert to SOP
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        /* My SOPs Tab */
+        <div className="sop-list">
+          {sopsLoading ? (
+            <>
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+            </>
+          ) : sops.length === 0 ? (
+            <div className="sop-empty">
+              <FileTextIcon />
+              <p>No SOPs created yet</p>
+              <p style={{ fontSize: 12, marginTop: 4 }}>
+                Record a workflow and convert it to an SOP to see it here.
+              </p>
+            </div>
+          ) : (
+            sops.map((sop) => (
+              <div key={sop.id} className="sop-card">
+                <div className="sop-card-header" onClick={() => toggleSopExpanded(sop.id)}>
+                  <div className="sop-title">
+                    <h3>{sop.title}</h3>
+                    <div className="sop-meta">
+                      <span className={`sop-badge ${sop.status}`}>{sop.status}</span>
+                      <span>{sop.step_count} steps</span>
+                      <span>{formatDate(sop.updated_at)}</span>
+                    </div>
+                  </div>
+                  <span className={`sop-chevron ${expandedSops.has(sop.id) ? "open" : ""}`}>
+                    <ChevronDownIcon />
+                  </span>
+                </div>
+
+                {expandedSops.has(sop.id) && (
+                  <div className="sop-steps-list">
+                    {!sopStepsCache[sop.id] ? (
+                      <div className="skeleton skeleton-card" />
+                    ) : sopStepsCache[sop.id].length === 0 ? (
+                      <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center", padding: 8 }}>
+                        No steps in this SOP
+                      </p>
+                    ) : (
+                      sopStepsCache[sop.id].map((sopStep) => (
+                        <div key={sopStep.id} className="sop-step-item">
+                          <span className="sop-step-num">{sopStep.order_number}</span>
+                          <div className="sop-step-content">
+                            <h4>{sopStep.title || sopStep.description || `Step ${sopStep.order_number}`}</h4>
+                            {sopStep.description && sopStep.title && (
+                              <p>{sopStep.description}</p>
+                            )}
+                            {sopStep.has_warning && sopStep.warning_text && (
+                              <div className="sop-step-warning">⚠️ {sopStep.warning_text}</div>
+                            )}
+                            {sopStep.screenshot_url && (
+                              <img
+                                src={sopStep.screenshot_url}
+                                alt={`Step ${sopStep.order_number}`}
+                                loading="lazy"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

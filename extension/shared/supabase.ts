@@ -160,6 +160,85 @@ export async function createStep(
   }
 }
 
+// Fetch user's SOPs
+export async function fetchUserSOPs(): Promise<
+  Array<{
+    id: string;
+    title: string;
+    status: string;
+    description: string | null;
+    updated_at: string | null;
+    step_count: number;
+  }>
+> {
+  try {
+    const { data: sops, error } = await supabase
+      .from("sops")
+      .select("id, title, status, description, updated_at")
+      .order("updated_at", { ascending: false });
+
+    if (error || !sops) {
+      console.error("[Extension] Fetch SOPs error:", error);
+      return [];
+    }
+
+    // Get step counts
+    const sopIds = sops.map((s) => s.id);
+    if (sopIds.length === 0) return [];
+
+    const { data: stepRows } = await supabase
+      .from("sop_steps")
+      .select("sop_id")
+      .in("sop_id", sopIds);
+
+    const countMap: Record<string, number> = {};
+    stepRows?.forEach((r) => {
+      countMap[r.sop_id] = (countMap[r.sop_id] || 0) + 1;
+    });
+
+    return sops.map((sop) => ({
+      ...sop,
+      step_count: countMap[sop.id] || 0,
+    }));
+  } catch (error) {
+    console.error("[Extension] Fetch SOPs failed:", error);
+    return [];
+  }
+}
+
+// Fetch steps for a specific SOP
+export async function fetchSOPSteps(
+  sopId: string
+): Promise<
+  Array<{
+    id: string;
+    order_number: number;
+    title: string | null;
+    description: string | null;
+    screenshot_url: string | null;
+    has_warning: boolean | null;
+    warning_text: string | null;
+  }>
+> {
+  try {
+    const { data, error } = await supabase
+      .from("sop_steps")
+      .select("id, order_number, title, description, screenshot_url, has_warning, warning_text")
+      .eq("sop_id", sopId)
+      .order("order_number", { ascending: true });
+
+    if (error) {
+      console.error("[Extension] Fetch SOP steps error:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("[Extension] Fetch SOP steps failed:", error);
+    return [];
+  }
+}
+
 // Update recording status
 export async function updateRecordingStatus(
   recordingId: string,

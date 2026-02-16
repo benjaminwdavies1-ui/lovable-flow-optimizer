@@ -1,115 +1,117 @@
 
 
-## Continuous Monitoring + Manual Recording: Dual-Mode Extension
+## Decision Tree Branching for Process Maps
 
-Add an "always-on" background monitoring mode alongside the existing manual recording, so users can either passively capture their day or intentionally record specific processes.
+This plan adds split decision points to the SOP/recording step editors and updates the process map visualization to render branching paths.
 
-### How It Works for You
+### What You'll Get
 
-- **Manual Recording** (existing): Click "Start Recording", do your workflow, click "Stop". You control exactly what gets captured.
-- **Always-On Monitoring** (new): Flip a toggle and go about your day. The extension quietly logs your browser activity in the background. Later, AI groups those actions into detected processes you can review, name, and convert into SOPs.
+- When creating or editing a process, any step can be toggled into a **decision point**
+- Decision points can be **simple** (just a description) or **split** (with YES/NO branches containing substeps)
+- In split mode, two side-by-side columns appear: a green YES path and a red NO path
+- Each branch supports independent substeps with descriptions, reordering, and deletion
+- The process map diagram renders these branches as proper flowchart forks that rejoin the main flow
 
-You can use both at the same time -- the always-on monitor keeps running even while you do a manual recording.
+### Changes
 
-### What You'll See
+#### 1. Database: Add Decision Branch Data to Steps
 
-**In the Extension Sidebar:**
-- A new "Monitor" tab alongside "Record" and "My SOPs"
-- A simple on/off toggle switch
-- Live event counter ("142 events today")
-- A timeline of AI-detected process clusters for today
-- Each cluster shows: AI-generated name, time range, event count, confidence score
-- Actions: "Convert to Recording", "Dismiss", or expand to see raw events
+Add new columns to the `steps` and `sop_steps` tables to store branch data:
 
-**On the Web Page (while monitoring):**
-- A small, subtle green dot in the top-right corner (instead of the red banner used during manual recording)
+- `is_decision` (boolean, default false) -- marks a step as a decision point
+- `decision_mode` (text, default 'simple') -- 'simple' or 'split'
+- `yes_branch_steps` (jsonb, default '[]') -- array of substep objects for the YES path
+- `no_branch_steps` (jsonb, default '[]') -- array of substep objects for the NO path
 
-**In the Web App (Insights page):**
-- A new "Daily Activity" section showing detected process clusters
-- A "Run Segmentation" button to trigger AI analysis of today's events
-- An activity timeline visualization
+Using JSONB arrays keeps the schema simple -- substeps don't need their own table since they're always loaded/saved with their parent decision step.
 
-### Technical Details
+Each substep object shape:
+```text
+{
+  id: string,
+  order_number: number,
+  description: string
+}
+```
 
-#### 1. Database: Two New Tables
+#### 2. New Component: `DecisionBranchEditor`
 
-**`activity_events`** -- lightweight raw event log
-- id, user_id, action_type, url, element_info (jsonb), screenshot_url (nullable), timestamp, session_date, cluster_id (nullable, filled by AI), created_at
-- RLS: users can only read/write their own events
+**File: `src/components/recording/DecisionBranchEditor.tsx`**
 
-**`process_clusters`** -- AI-detected process groupings
-- id, user_id, title, description, start_time, end_time, event_count, confidence_score, status (detected/confirmed/dismissed), converted_to_recording_id (nullable), created_at
-- RLS: users can only access their own clusters
+A new component that renders when a step is in "split" decision mode:
 
-#### 2. Extension Changes
+- Two side-by-side columns with card styling
+- YES column: green border/accent, checkmark icon header, "+ Add Step" button
+- NO column: red border/accent, X icon header, "+ Add Step" button
+- Each substep row has: order number, description textarea, up/down reorder arrows, delete button
+- Substeps numbered independently per branch (YES-1, YES-2... / NO-1, NO-2...)
+- Branches can have different lengths
 
-**`extension/shared/types.ts`**
-- Add new message types: `TOGGLE_CONTINUOUS`, `CONTINUOUS_CAPTURE`, `CONTINUOUS_STATUS`
-- Add `ActivityEvent` interface and continuous mode storage key
+#### 3. Update Step Editors (SOPNew, SOPEdit, RecordingNew)
 
-**`extension/background.ts`**
-- Add `continuousMode` flag
-- New `TOGGLE_CONTINUOUS` handler to enable/disable
-- New `CONTINUOUS_CAPTURE` handler that batches events in memory and flushes to `activity_events` every 30 seconds or every 10 events
-- Screenshots captured only every 5th event (lower quality) to save storage
-- Insert a "gap" marker when no events for 5+ minutes
-- Continuous mode runs independently of manual recording sessions
+Add to each step card:
 
-**`extension/content/content-script.ts`**
-- Check `opstrace_continuous` in storage on init
-- When continuous mode is on AND not in manual recording, send `CONTINUOUS_CAPTURE` instead of `CAPTURE_STEP`
-- When both are on, send both message types
-- Show subtle green dot indicator (not the red recording banner)
+- A "Decision" toggle button (diamond icon) next to the existing warning toggle
+- When toggled on, show a mode switcher: "Simple" vs "Split"
+- In simple mode: just the existing description field (decision is noted but no branches)
+- In split mode: render the `DecisionBranchEditor` component below the description
+- The step's `actionType` changes to "decision" when toggled
 
-**`extension/shared/supabase.ts`**
-- Add `batchInsertActivityEvents()` to bulk-insert events
-- Add `fetchTodayClusters()` to get today's process clusters
-- Add `fetchClusterEvents(clusterId)` to get events in a cluster
-- Add `updateClusterStatus()` for confirm/dismiss actions
+Update the `SOPStep` and `RecordingStepData` interfaces to include `isDecision`, `decisionMode`, `yesBranchSteps`, and `noBranchSteps`.
 
-**`extension/sidebar/SidebarApp.tsx`**
-- Add third tab: "Monitor" with a toggle switch, event counter, and cluster list
-- Clusters are expandable cards with convert/dismiss actions
+#### 4. Update `StepTypeButtons`
 
-**`extension/sidebar/sidebar.css`**
-- Styles for the monitor tab, green dot status, cluster cards, and timeline
+Add a new "Decision" action type button alongside click, type, navigate, scroll, custom -- with a diamond icon and yellow accent color.
 
-#### 3. New Edge Function: `segment-processes`
+#### 5. Update Process Map Generation
 
-- Accepts `{ user_id, date? }` (defaults to today)
-- Fetches all `activity_events` for that user/date that have no cluster_id
-- Uses time gaps (5+ min), URL domain changes, and AI analysis (Gemini 2.5 Flash) to segment events into clusters
-- AI prompt: "Given this sequence of browser interactions, identify distinct business processes. Group related actions and name each process."
-- Writes results to `process_clusters` and updates `activity_events.cluster_id`
+**File: `src/components/process-map/ProcessMap.tsx`** -- update `generateNodesAndEdges`:
 
-#### 4. Updated Edge Function: `analyze-business-context`
+When a step has `is_decision: true` and `decision_mode: 'split'`:
 
-- Also pull from `process_clusters` to enrich business understanding
-- Detect recurring processes (same cluster pattern seen multiple times)
+- Render the decision step as a diamond-shaped node
+- Create YES branch nodes offset to the left (x - 200)
+- Create NO branch nodes offset to the right (x + 200)
+- Connect decision node to first YES substep (green edge, "Yes" label)
+- Connect decision node to first NO substep (red edge, "No" label)
+- Chain substeps within each branch vertically
+- Both branches converge to a "merge" node, which then connects to the next main step
+- Track the Y offset so subsequent main steps are positioned below the longest branch
 
-#### 5. Web App: Insights Page
+**File: `src/components/process-map/ProcessNode.tsx`** -- add decision node styling:
 
-- Add "Daily Activity" card with date picker and cluster list
-- "Run Segmentation" button triggers the `segment-processes` edge function
-- Each cluster card has: title, time range, event count, confidence badge, and "Convert to SOP" button
+- New `decision` entry in `actionIcons` (diamond icon) and `actionColors` (yellow accent)
+- Decision nodes get a rotated diamond shape via CSS transform
+
+**File: `supabase/functions/generate-process-map/index.ts`** -- update the edge function:
+
+- Accept `yes_branch_steps` and `no_branch_steps` in the Step interface
+- When a step has `decision_mode: 'split'`, generate branching nodes/edges with proper positioning
+- YES branch nodes positioned at x - 200, NO branch at x + 200
+- Both branches connect back to a merge point before continuing to the next step
+
+#### 6. Update Services
+
+**File: `src/services/recordingService.ts`** and **`src/services/sopService.ts`**:
+
+- Include `is_decision`, `decision_mode`, `yes_branch_steps`, `no_branch_steps` in create/update step calls
 
 ### Implementation Order
 
-1. Create `activity_events` and `process_clusters` tables with RLS
-2. Update extension types with new message types and interfaces
-3. Add continuous mode to background worker (batching + flush logic)
-4. Update content script with continuous capture and green dot indicator
-5. Add supabase helper functions for activity events and clusters
-6. Add "Monitor" tab to sidebar UI
-7. Create `segment-processes` edge function
-8. Update `analyze-business-context` to include cluster data
-9. Add daily activity section to Insights page
+1. Database migration: add 4 new columns to `steps` and `sop_steps`
+2. Create `DecisionBranchEditor` component
+3. Add "decision" to `StepTypeButtons` action types
+4. Update `SOPNew` and `SOPEdit` step cards with decision toggle and branch editor
+5. Update `RecordingNew` step cards similarly
+6. Update `ProcessNode` with decision node styling
+7. Update `ProcessMap.generateNodesAndEdges` for branching layout
+8. Update `generate-process-map` edge function for branching
+9. Update recording/SOP services to persist branch data
 
-### Performance and Privacy Considerations
+### Technical Considerations
 
-- **Batching**: Events are held in memory and flushed periodically, not sent one-by-one
-- **Screenshot throttling**: Only every 5th event gets a screenshot, at lower quality
-- **Green dot indicator**: Users always know monitoring is active
-- **No content capture**: Only element metadata (tag, text, selector) is logged -- no passwords or typed content
-- **Session date partitioning**: Makes it easy to query by day and purge old data
+- JSONB storage for substeps avoids complex relational modeling while keeping data co-located with the parent step
+- The merge node pattern ensures the flowchart always has a clear path forward after a decision
+- Branch positioning uses fixed x-offsets (left/right of center) with dynamic y based on substep count
+- The longer branch determines the Y position of the merge/next node
 

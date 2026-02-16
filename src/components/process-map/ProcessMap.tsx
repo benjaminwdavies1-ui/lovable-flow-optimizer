@@ -25,6 +25,10 @@ export interface Step {
   title?: string | null;
   description?: string | null;
   has_warning?: boolean;
+  is_decision?: boolean;
+  decision_mode?: string;
+  yes_branch_steps?: Array<{ id: string; order_number: number; description: string }>;
+  no_branch_steps?: Array<{ id: string; order_number: number; description: string }>;
 }
 
 interface ProcessMapProps {
@@ -39,6 +43,7 @@ const nodeTypes = {
   start: ProcessNode,
   end: ProcessNode,
   decision: ProcessNode,
+  merge: ProcessNode,
 };
 
 function generateNodesAndEdges(steps: Step[]): { nodes: Node[]; edges: Edge[] } {
@@ -57,77 +62,183 @@ function generateNodesAndEdges(steps: Step[]): { nodes: Node[]; edges: Edge[] } 
     id: "start",
     type: "start",
     position: { x: startX, y: startY },
-    data: {
-      label: "Start",
-      actionType: "start",
-      hasWarning: false,
-    } as ProcessNodeData,
+    data: { label: "Start", actionType: "start", hasWarning: false } as ProcessNodeData,
   });
 
-  // Step nodes
+  let currentY = startY;
+
   sortedSteps.forEach((step, index) => {
+    currentY += nodeSpacingY;
     const nodeId = `step-${step.id}`;
     const label = step.title || step.instruction_text || step.description || `Step ${step.order_number}`;
-    
-    nodes.push({
-      id: nodeId,
-      type: "step",
-      position: { x: startX, y: startY + (index + 1) * nodeSpacingY },
-      data: {
-        label: label.length > 40 ? label.substring(0, 40) + "..." : label,
-        actionType: step.action_type || "custom",
-        hasWarning: step.has_warning || false,
-        stepNumber: step.order_number,
-      } as ProcessNodeData,
-    });
+    const truncLabel = label.length > 40 ? label.substring(0, 40) + "..." : label;
+    const prevId = index === 0 ? "start" : (() => {
+      const prev = sortedSteps[index - 1];
+      if (prev.is_decision && prev.decision_mode === "split") return `merge-${prev.id}`;
+      return `step-${prev.id}`;
+    })();
 
-    // Edge from previous node
-    const sourceId = index === 0 ? "start" : `step-${sortedSteps[index - 1].id}`;
-    edges.push({
-      id: `edge-${sourceId}-${nodeId}`,
-      source: sourceId,
-      target: nodeId,
-      type: "smoothstep",
-      animated: false,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-      },
-      style: { strokeWidth: 2 },
-    });
+    const isSplitDecision = step.is_decision && step.decision_mode === "split";
+
+    if (isSplitDecision) {
+      // Decision diamond node
+      nodes.push({
+        id: nodeId,
+        type: "decision",
+        position: { x: startX, y: currentY },
+        data: { label: truncLabel, actionType: "decision", hasWarning: step.has_warning || false, stepNumber: step.order_number } as ProcessNodeData,
+      });
+
+      edges.push({
+        id: `edge-${prevId}-${nodeId}`,
+        source: prevId,
+        target: nodeId,
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+        style: { strokeWidth: 2 },
+      });
+
+      const yesSteps = step.yes_branch_steps || [];
+      const noSteps = step.no_branch_steps || [];
+      const maxBranchLen = Math.max(yesSteps.length, noSteps.length, 1);
+
+      // YES branch (left)
+      let lastYesId = nodeId;
+      yesSteps.forEach((bs, bi) => {
+        const bsId = `yes-${step.id}-${bs.id}`;
+        nodes.push({
+          id: bsId,
+          type: "step",
+          position: { x: startX - 220, y: currentY + (bi + 1) * nodeSpacingY },
+          data: { label: bs.description || `YES-${bs.order_number}`, actionType: "custom", hasWarning: false, stepNumber: undefined } as ProcessNodeData,
+        });
+        edges.push({
+          id: `edge-${lastYesId}-${bsId}`,
+          source: lastYesId,
+          target: bsId,
+          type: "smoothstep",
+          label: bi === 0 ? "Yes" : undefined,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2, stroke: "#10b981" },
+        });
+        lastYesId = bsId;
+      });
+
+      // NO branch (right)
+      let lastNoId = nodeId;
+      noSteps.forEach((bs, bi) => {
+        const bsId = `no-${step.id}-${bs.id}`;
+        nodes.push({
+          id: bsId,
+          type: "step",
+          position: { x: startX + 220, y: currentY + (bi + 1) * nodeSpacingY },
+          data: { label: bs.description || `NO-${bs.order_number}`, actionType: "custom", hasWarning: false, stepNumber: undefined } as ProcessNodeData,
+        });
+        edges.push({
+          id: `edge-${lastNoId}-${bsId}`,
+          source: lastNoId,
+          target: bsId,
+          type: "smoothstep",
+          label: bi === 0 ? "No" : undefined,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2, stroke: "#ef4444" },
+        });
+        lastNoId = bsId;
+      });
+
+      // Merge node
+      currentY += maxBranchLen * nodeSpacingY + nodeSpacingY;
+      const mergeId = `merge-${step.id}`;
+      nodes.push({
+        id: mergeId,
+        type: "merge",
+        position: { x: startX, y: currentY },
+        data: { label: "Merge", actionType: "merge", hasWarning: false } as ProcessNodeData,
+      });
+
+      // Connect last branch nodes to merge
+      if (yesSteps.length > 0) {
+        edges.push({
+          id: `edge-${lastYesId}-${mergeId}`,
+          source: lastYesId,
+          target: mergeId,
+          type: "smoothstep",
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2 },
+        });
+      } else {
+        edges.push({
+          id: `edge-yes-empty-${mergeId}`,
+          source: nodeId,
+          target: mergeId,
+          type: "smoothstep",
+          label: "Yes",
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2, stroke: "#10b981" },
+        });
+      }
+      if (noSteps.length > 0) {
+        edges.push({
+          id: `edge-${lastNoId}-${mergeId}`,
+          source: lastNoId,
+          target: mergeId,
+          type: "smoothstep",
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2 },
+        });
+      } else {
+        edges.push({
+          id: `edge-no-empty-${mergeId}`,
+          source: nodeId,
+          target: mergeId,
+          type: "smoothstep",
+          label: "No",
+          markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+          style: { strokeWidth: 2, stroke: "#ef4444" },
+        });
+      }
+    } else {
+      // Regular step node
+      nodes.push({
+        id: nodeId,
+        type: "step",
+        position: { x: startX, y: currentY },
+        data: { label: truncLabel, actionType: step.action_type || "custom", hasWarning: step.has_warning || false, stepNumber: step.order_number } as ProcessNodeData,
+      });
+
+      edges.push({
+        id: `edge-${prevId}-${nodeId}`,
+        source: prevId,
+        target: nodeId,
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+        style: { strokeWidth: 2 },
+      });
+    }
   });
 
   // End node
-  const endY = startY + (sortedSteps.length + 1) * nodeSpacingY;
+  currentY += nodeSpacingY;
+  const lastStep = sortedSteps[sortedSteps.length - 1];
+  const lastNodeId = lastStep.is_decision && lastStep.decision_mode === "split"
+    ? `merge-${lastStep.id}`
+    : `step-${lastStep.id}`;
+
   nodes.push({
     id: "end",
     type: "end",
-    position: { x: startX, y: endY },
-    data: {
-      label: "Complete",
-      actionType: "end",
-      hasWarning: false,
-    } as ProcessNodeData,
+    position: { x: startX, y: currentY },
+    data: { label: "Complete", actionType: "end", hasWarning: false } as ProcessNodeData,
   });
 
-  // Edge to end
-  if (sortedSteps.length > 0) {
-    const lastStepId = `step-${sortedSteps[sortedSteps.length - 1].id}`;
-    edges.push({
-      id: `edge-${lastStepId}-end`,
-      source: lastStepId,
-      target: "end",
-      type: "smoothstep",
-      animated: false,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-      },
-      style: { strokeWidth: 2 },
-    });
-  }
+  edges.push({
+    id: `edge-${lastNodeId}-end`,
+    source: lastNodeId,
+    target: "end",
+    type: "smoothstep",
+    markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
+    style: { strokeWidth: 2 },
+  });
 
   return { nodes, edges };
 }

@@ -306,42 +306,54 @@ export type Database = {
       sop_steps: {
         Row: {
           created_at: string | null
+          decision_mode: string
           description: string | null
           has_warning: boolean | null
           id: string
+          is_decision: boolean
           is_redacted: boolean | null
+          no_branch_steps: Json
           order_number: number
           screenshot_url: string | null
           show_screenshot: boolean | null
           sop_id: string
           title: string | null
           warning_text: string | null
+          yes_branch_steps: Json
         }
         Insert: {
           created_at?: string | null
+          decision_mode?: string
           description?: string | null
           has_warning?: boolean | null
           id?: string
+          is_decision?: boolean
           is_redacted?: boolean | null
+          no_branch_steps?: Json
           order_number: number
           screenshot_url?: string | null
           show_screenshot?: boolean | null
           sop_id: string
           title?: string | null
           warning_text?: string | null
+          yes_branch_steps?: Json
         }
         Update: {
           created_at?: string | null
+          decision_mode?: string
           description?: string | null
           has_warning?: boolean | null
           id?: string
+          is_decision?: boolean
           is_redacted?: boolean | null
+          no_branch_steps?: Json
           order_number?: number
           screenshot_url?: string | null
           show_screenshot?: boolean | null
           sop_id?: string
           title?: string | null
           warning_text?: string | null
+          yes_branch_steps?: Json
         }
         Relationships: [
           {
@@ -420,47 +432,59 @@ export type Database = {
         Row: {
           action_type: string
           created_at: string | null
+          decision_mode: string
           element_selector: string | null
           has_warning: boolean | null
           id: string
           instruction_text: string | null
+          is_decision: boolean
           is_redacted: boolean | null
+          no_branch_steps: Json
           order_number: number
           recording_id: string
           screenshot_url: string | null
           timestamp: string | null
           url: string | null
           warning_text: string | null
+          yes_branch_steps: Json
         }
         Insert: {
           action_type?: string
           created_at?: string | null
+          decision_mode?: string
           element_selector?: string | null
           has_warning?: boolean | null
           id?: string
           instruction_text?: string | null
+          is_decision?: boolean
           is_redacted?: boolean | null
+          no_branch_steps?: Json
           order_number: number
           recording_id: string
           screenshot_url?: string | null
           timestamp?: string | null
           url?: string | null
           warning_text?: string | null
+          yes_branch_steps?: Json
         }
         Update: {
           action_type?: string
           created_at?: string | null
+          decision_mode?: string
           element_selector?: string | null
           has_warning?: boolean | null
           id?: string
           instruction_text?: string | null
+          is_decision?: boolean
           is_redacted?: boolean | null
+          no_branch_steps?: Json
           order_number?: number
           recording_id?: string
           screenshot_url?: string | null
           timestamp?: string | null
           url?: string | null
           warning_text?: string | null
+          yes_branch_steps?: Json
         }
         Relationships: [
           {

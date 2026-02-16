@@ -10,6 +10,8 @@ import {
   Play,
   CheckCircle2,
   HelpCircle,
+  Diamond,
+  GitMerge,
 } from "lucide-react";
 
 export type ProcessNodeData = {
@@ -27,6 +29,8 @@ const actionIcons: Record<string, React.ComponentType<{ className?: string }>> =
   custom: HelpCircle,
   start: Play,
   end: CheckCircle2,
+  decision: Diamond,
+  merge: GitMerge,
 };
 
 const actionColors: Record<string, string> = {
@@ -37,6 +41,8 @@ const actionColors: Record<string, string> = {
   custom: "bg-muted border-border text-muted-foreground",
   start: "bg-emerald-500/10 border-emerald-500/30 text-emerald-600",
   end: "bg-emerald-500/10 border-emerald-500/30 text-emerald-600",
+  decision: "bg-yellow-500/10 border-yellow-500/30 text-yellow-600",
+  merge: "bg-slate-500/10 border-slate-500/30 text-slate-600",
 };
 
 function ProcessNodeComponent({ data, type }: NodeProps) {
@@ -44,14 +50,17 @@ function ProcessNodeComponent({ data, type }: NodeProps) {
   const Icon = actionIcons[nodeData.actionType] || HelpCircle;
   const colorClass = actionColors[nodeData.actionType] || actionColors.custom;
   const isStartOrEnd = type === "start" || type === "end";
+  const isDecision = nodeData.actionType === "decision";
 
   return (
     <div
       className={cn(
-        "relative px-4 py-3 rounded-lg border-2 shadow-sm transition-all min-w-[180px] max-w-[250px]",
+        "relative px-4 py-3 border-2 shadow-sm transition-all min-w-[180px] max-w-[250px]",
+        isDecision ? "rotate-0 rounded-lg" : "rounded-lg",
         colorClass,
         nodeData.hasWarning && "ring-2 ring-amber-400 ring-offset-2"
       )}
+      style={isDecision ? { clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)", padding: "2rem 1.5rem", minWidth: "200px" } : undefined}
     >
       {!isStartOrEnd && type !== "start" && (
         <Handle

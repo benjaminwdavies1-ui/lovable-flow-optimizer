@@ -92,7 +92,7 @@ export default function Insights() {
       if (!sops?.length) return { steps: [], title: "No processes yet" };
       const { data: steps } = await supabase
         .from("sop_steps").select("*").eq("sop_id", sops[0].id).order("order_number");
-      return { steps: (steps as Step[]) || [], title: sops[0].title || "Latest Process" };
+      return { steps: (steps as unknown as Step[]) || [], title: sops[0].title || "Latest Process" };
     },
     enabled: !!user?.id,
   });

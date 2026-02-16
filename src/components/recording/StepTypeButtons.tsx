@@ -6,11 +6,12 @@ import {
   GripVertical, 
   FileText,
   Camera,
-  Loader2
+  Loader2,
+  Diamond
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ActionType = "click" | "type" | "navigate" | "scroll" | "custom";
+export type ActionType = "click" | "type" | "navigate" | "scroll" | "custom" | "decision";
 
 export const actionTypeConfig = {
   click: { label: "Click", icon: MousePointer, color: "bg-blue-500" },
@@ -18,6 +19,7 @@ export const actionTypeConfig = {
   navigate: { label: "Navigate", icon: ArrowRight, color: "bg-purple-500" },
   scroll: { label: "Scroll", icon: GripVertical, color: "bg-orange-500" },
   custom: { label: "Custom", icon: FileText, color: "bg-gray-500" },
+  decision: { label: "Decision", icon: Diamond, color: "bg-yellow-500" },
 };
 
 interface StepTypeButtonsProps {

@@ -9,13 +9,17 @@ import { cn } from "@/lib/utils";
 export interface RecordingStepData {
   id: string;
   orderNumber: number;
-  actionType: "click" | "type" | "navigate" | "scroll" | "custom";
+  actionType: "click" | "type" | "navigate" | "scroll" | "custom" | "decision";
   instructionText: string;
   url?: string;
   screenshotUrl?: string;
   hasWarning: boolean;
   warningText?: string;
   isRedacted: boolean;
+  isDecision?: boolean;
+  decisionMode?: "simple" | "split";
+  yesBranchSteps?: Array<{ id: string; order_number: number; description: string }>;
+  noBranchSteps?: Array<{ id: string; order_number: number; description: string }>;
 }
 
 interface ActionTypeConfig {

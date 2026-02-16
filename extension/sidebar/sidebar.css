@@ -534,6 +534,38 @@ body {
   margin-top: 4px;
 }
 
+/* SOP Tags */
+.sop-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.sop-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.sop-tag.employee {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.sop-tag.department {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+}
+
+.sop-tag.tools {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+}
+
 /* Loading skeleton */
 .skeleton {
   background: var(--muted);

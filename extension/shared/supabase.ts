@@ -174,7 +174,7 @@ export async function fetchUserSOPs(): Promise<
   try {
     const { data: sops, error } = await supabase
       .from("sops")
-      .select("id, title, status, description, updated_at")
+      .select("id, title, status, description, updated_at, employee_tags, department_tags, tools_tags")
       .order("updated_at", { ascending: false });
 
     if (error || !sops) {

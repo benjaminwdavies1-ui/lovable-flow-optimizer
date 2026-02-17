@@ -19,6 +19,7 @@ import BusinessKnowledge from "./pages/insights/BusinessKnowledge";
 import AutomationRecommendations from "./pages/insights/AutomationRecommendations";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
+import KnowledgeBase from "./pages/KnowledgeBase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/sops/:id" element={<AuthGuard><SOPView /></AuthGuard>} />
             <Route path="/sops/:id/edit" element={<AuthGuard><SOPEdit /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            <Route path="/knowledge" element={<AuthGuard><KnowledgeBase /></AuthGuard>} />
             
             {/* Insights with sub-routes */}
             <Route path="/insights" element={<AuthGuard><InsightsLayout /></AuthGuard>}>

@@ -38,10 +38,27 @@ async function getBusinessContext(supabase: any, userId: string) {
       .eq("status", "pending")
       .limit(3);
 
+    // Fetch knowledge base entries
+    const { data: knowledge } = await supabase
+      .from("knowledge_entries")
+      .select("title, content, category, tags")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
     let contextBlock = "";
 
+    if (knowledge?.length) {
+      contextBlock += "\n\n## User's Knowledge Base\n";
+      knowledge.forEach((k: any) => {
+        contextBlock += `- [${k.category}] **${k.title}**: ${k.content.substring(0, 200)}${k.content.length > 200 ? '...' : ''}`;
+        if (k.tags?.length) contextBlock += ` (tags: ${k.tags.join(', ')})`;
+        contextBlock += "\n";
+      });
+    }
+
     if (sops?.length || recordings?.length) {
-      contextBlock += "\n\n## User's Business Context\n";
+      contextBlock += "\n\n## User's Processes\n";
       
       if (recordings?.length) {
         contextBlock += "\n**Recorded Processes:**\n";
@@ -109,16 +126,18 @@ serve(async (req) => {
 
 3. **Operations Best Practices**: Provide advice on process optimization, identifying automation opportunities, and improving operational efficiency.
 
-4. **Using the Platform**: Help users navigate Opstrace features like the SOP editor, recording tools, and export options.
+4. **Using the Platform**: Help users navigate Opstrace features like the SOP editor, recording tools, knowledge base, and export options.
 
 5. **Business Analysis**: When users ask about their processes, use the context below to provide specific, relevant answers about their actual workflows and SOPs.
+
+6. **Knowledge Base Queries**: When users ask "how do we do X?" or "what tool do we use for Y?", search the knowledge base entries in the context below and provide specific answers with references to relevant SOPs.
 ${businessContext}
 
 Keep responses concise, actionable, and professional. Use bullet points and numbered lists when explaining multi-step processes. When users ask "how do I do this?", provide specific, practical guidance.
 
-When users ask about their processes (e.g., "What SOPs do I have?", "How do we handle X?"), refer to the business context above to give personalized answers.
+When users ask about their processes or knowledge (e.g., "What SOPs do I have?", "How do we handle X?", "What software do we use for Y?"), refer to the business context and knowledge base above to give personalized answers. When referencing SOPs, mention the specific SOP title so users can find it.
 
-If asked about features not yet implemented (like automation suggestions or insights), explain they're coming soon and offer alternative approaches.`;
+If asked about features not yet implemented, explain they're coming soon and offer alternative approaches.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

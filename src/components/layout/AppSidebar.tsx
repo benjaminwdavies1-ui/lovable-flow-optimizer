@@ -8,6 +8,7 @@ import {
   Brain,
   Zap,
   LogOut,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +30,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const mainNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "SOPs", url: "/sops", icon: FileText },
+  { title: "Knowledge Base", url: "/knowledge", icon: BookOpen },
 ];
 
 const insightsNavItems = [

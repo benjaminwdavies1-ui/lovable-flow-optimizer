@@ -15,7 +15,10 @@ import {
   AlertTriangle,
   Save,
   Send,
-  Diamond
+  Diamond,
+  Monitor,
+  MousePointer,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -132,10 +135,59 @@ export default function SOPNew() {
       }
     >
       <div className="space-y-6">
+        {/* Recording Options */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Record a Workflow</CardTitle>
+            <CardDescription>Capture your process by recording your screen or tracking clicks</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <button
+                onClick={() => {
+                  toast.info("Opening screen capture...");
+                  navigator.mediaDevices?.getDisplayMedia?.({ video: true })
+                    .then(() => toast.success("Screen capture started! Perform your workflow, then stop sharing to finish."))
+                    .catch(() => toast.error("Screen capture was cancelled or is not supported."));
+                }}
+                className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-primary/5 text-center"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <Monitor className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Screen Capture</p>
+                  <p className="text-xs text-muted-foreground mt-1">Record your entire screen or a specific window</p>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  window.open(window.location.origin + "/install", "_blank");
+                  toast.info("Install the Opstrace app to use click tracking on any website.");
+                }}
+                className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-primary/5 text-center"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <MousePointer className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Click Tracking</p>
+                  <p className="text-xs text-muted-foreground mt-1">Install the desktop app to capture each click with screenshots</p>
+                </div>
+              </button>
+            </div>
+            <div className="mt-4 flex items-center gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+              <Download className="h-4 w-4 shrink-0" />
+              <span>Need to record on external websites? <a href="/install" className="text-primary underline hover:no-underline">Install the Opstrace app</a> for full click-by-click capture.</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Manual SOP creation */}
         <Card>
           <CardHeader>
             <CardTitle>SOP Details</CardTitle>
-            <CardDescription>Enter the basic information for your procedure</CardDescription>
+            <CardDescription>Or create a procedure manually by entering the steps below</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">

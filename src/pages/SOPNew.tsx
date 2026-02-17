@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DecisionBranchEditor, type BranchStep } from "@/components/sop/DecisionBranchEditor";
+import { useScreenRecording } from "@/hooks/useScreenRecording";
+import { RecordingToolbar } from "@/components/recording/RecordingToolbar";
 
 interface SOPStep {
   id: string;
@@ -45,6 +47,39 @@ export default function SOPNew() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState<SOPStep[]>([]);
+  const {
+    startRecording,
+    stopRecording,
+    isRecording,
+    isStopped,
+    capturedSteps,
+    elapsedTime,
+    stepCount,
+    resetRecording,
+  } = useScreenRecording();
+
+  // When recording stops, populate SOP steps from captured screenshots
+  useEffect(() => {
+    if (isStopped && capturedSteps.length > 0) {
+      const newSteps: SOPStep[] = capturedSteps.map((cs) => ({
+        id: cs.id,
+        orderNumber: cs.orderNumber,
+        title: cs.title,
+        description: cs.description,
+        screenshotUrl: cs.screenshotDataUrl,
+        showScreenshot: true,
+        hasWarning: false,
+        isRedacted: false,
+        isDecision: false,
+        decisionMode: "simple" as const,
+        yesBranchSteps: [],
+        noBranchSteps: [],
+      }));
+      setSteps((prev) => [...prev, ...newSteps]);
+      toast.success(`${capturedSteps.length} steps captured from recording!`);
+      resetRecording();
+    }
+  }, [isStopped, capturedSteps, resetRecording]);
 
   const addStep = useCallback(() => {
     const newStep: SOPStep = {
@@ -144,20 +179,19 @@ export default function SOPNew() {
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
               <button
-                onClick={() => {
-                  toast.info("Opening screen capture...");
-                  navigator.mediaDevices?.getDisplayMedia?.({ video: true })
-                    .then(() => toast.success("Screen capture started! Perform your workflow, then stop sharing to finish."))
-                    .catch(() => toast.error("Screen capture was cancelled or is not supported."));
-                }}
-                className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-primary/5 text-center"
+                onClick={() => startRecording()}
+                disabled={isRecording}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-lg border-2 border-dashed p-6 transition-colors hover:border-primary hover:bg-primary/5 text-center",
+                  isRecording && "opacity-50 cursor-not-allowed"
+                )}
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Monitor className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <p className="font-medium text-foreground">Screen Capture</p>
-                  <p className="text-xs text-muted-foreground mt-1">Record your entire screen or a specific window</p>
+                  <p className="text-xs text-muted-foreground mt-1">Record your screen — clicks auto-capture screenshots</p>
                 </div>
               </button>
               <button
@@ -247,6 +281,13 @@ export default function SOPNew() {
                       </div>
                       
                       <div className="flex-1 space-y-3">
+                        {step.screenshotUrl && step.showScreenshot && (
+                          <img
+                            src={step.screenshotUrl}
+                            alt={`Screenshot for ${step.title || `Step ${step.orderNumber}`}`}
+                            className="w-full max-h-48 object-contain rounded-md border bg-muted"
+                          />
+                        )}
                         <Input
                           value={step.title}
                           onChange={(e) => updateStep(step.id, { title: e.target.value })}
@@ -347,6 +388,14 @@ export default function SOPNew() {
           </CardContent>
         </Card>
       </div>
+
+      {isRecording && (
+        <RecordingToolbar
+          elapsedTime={elapsedTime}
+          stepCount={stepCount}
+          onStop={stopRecording}
+        />
+      )}
     </AppLayout>
   );
 }

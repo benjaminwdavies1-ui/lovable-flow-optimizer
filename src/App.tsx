@@ -18,6 +18,7 @@ import ProcessMaps from "./pages/insights/ProcessMaps";
 import BusinessKnowledge from "./pages/insights/BusinessKnowledge";
 import AutomationRecommendations from "./pages/insights/AutomationRecommendations";
 import Auth from "./pages/Auth";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/install" element={<Install />} />
             
             <Route path="/" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/sops" element={<AuthGuard><SOPs /></AuthGuard>} />

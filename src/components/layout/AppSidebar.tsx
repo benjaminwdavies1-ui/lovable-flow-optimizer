@@ -4,9 +4,10 @@ import {
   FileText,
   Settings,
   BarChart3,
+  Map,
+  Brain,
   Zap,
   LogOut,
-  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,31 +27,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const mainNavItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "SOPs",
-    url: "/sops",
-    icon: FileText,
-  },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "SOPs", url: "/sops", icon: FileText },
 ];
 
-const futureNavItems = [
-  {
-    title: "Insights",
-    url: "/insights",
-    icon: BarChart3,
-    disabled: false,
-  },
-  {
-    title: "Automations",
-    url: "/automations",
-    icon: Zap,
-    disabled: false,
-  },
+const insightsNavItems = [
+  { title: "Overview", url: "/insights", icon: BarChart3, exact: true },
+  { title: "Process Maps", url: "/insights/process-maps", icon: Map },
+  { title: "Business Knowledge", url: "/insights/knowledge", icon: Brain },
+  { title: "Automations", url: "/insights/automations", icon: Zap },
 ];
 
 export function AppSidebar() {
@@ -58,15 +43,16 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
 
   const userInitials = user?.user_metadata?.full_name
-    ? user.user_metadata.full_name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
+    ? user.user_metadata.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() || "U";
-
   const displayName = user?.user_metadata?.full_name || user?.email || "User";
+
+  const isActive = (url: string, exact?: boolean) => {
+    if (exact) return location.pathname === url;
+    return location.pathname === url || location.pathname.startsWith(url + "/");
+  };
+
+  const isInsightsActive = location.pathname.startsWith("/insights");
 
   return (
     <Sidebar className="border-r-0">
@@ -75,17 +61,13 @@ export function AppSidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Zap className="h-4 w-4" />
           </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">
-            Opstrace
-          </span>
+          <span className="text-lg font-semibold text-sidebar-foreground">Opstrace</span>
         </Link>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">
-            Main
-          </SidebarGroupLabel>
+          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
@@ -114,41 +96,26 @@ export function AppSidebar() {
         <SidebarSeparator className="my-4 bg-sidebar-border" />
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">
-            Coming Soon
-          </SidebarGroupLabel>
+          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">Insights</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {futureNavItems.map((item) => (
+              {insightsNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  {item.disabled ? (
-                    <SidebarMenuButton
-                      disabled
-                      className={cn(
-                        "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
-                        "cursor-not-allowed opacity-50"
-                      )}
-                    >
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url, item.exact)}
+                    className={cn(
+                      "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActive(item.url, item.exact)
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname === item.url}
-                      className={cn(
-                        "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        location.pathname === item.url
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <Link to={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  )}
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -158,21 +125,14 @@ export function AppSidebar() {
 
       <SidebarFooter className="px-2 pb-4">
         <SidebarSeparator className="mb-4 bg-sidebar-border" />
-        
-        {/* User Profile */}
         <div className="mb-2 flex items-center gap-3 rounded-lg px-3 py-2">
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs">
-              {userInitials}
-            </AvatarFallback>
+            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs">{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">
-              {displayName}
-            </p>
+            <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
           </div>
         </div>
-
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

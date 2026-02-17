@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { getSOPWithSteps, updateSOP, type SOP, type SOPStep as DBSOPStep } from "@/services/sopService";
-import { DecisionBranchEditor, type BranchStep } from "@/components/recording/DecisionBranchEditor";
+import { DecisionBranchEditor, type BranchStep } from "@/components/sop/DecisionBranchEditor";
 
 interface SOPStep {
   id: string;

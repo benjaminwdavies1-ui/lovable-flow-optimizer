@@ -7,9 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { AIAssistant } from "@/components/ai/AIAssistant";
 import Dashboard from "./pages/Dashboard";
-import Recordings from "./pages/Recordings";
-import RecordingNew from "./pages/RecordingNew";
-import RecordingView from "./pages/RecordingView";
 import SOPs from "./pages/SOPs";
 import SOPNew from "./pages/SOPNew";
 import SOPView from "./pages/SOPView";
@@ -35,9 +32,6 @@ const App = () => (
             
             {/* Protected routes - require authentication */}
             <Route path="/" element={<AuthGuard><Dashboard /></AuthGuard>} />
-            <Route path="/recordings" element={<AuthGuard><Recordings /></AuthGuard>} />
-            <Route path="/recordings/new" element={<AuthGuard><RecordingNew /></AuthGuard>} />
-            <Route path="/recordings/:id" element={<AuthGuard><RecordingView /></AuthGuard>} />
             <Route path="/sops" element={<AuthGuard><SOPs /></AuthGuard>} />
             <Route path="/sops/new" element={<AuthGuard><SOPNew /></AuthGuard>} />
             <Route path="/sops/:id" element={<AuthGuard><SOPView /></AuthGuard>} />

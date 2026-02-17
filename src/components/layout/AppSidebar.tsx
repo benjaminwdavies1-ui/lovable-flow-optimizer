@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  Video,
   FileText,
   Settings,
   BarChart3,
@@ -31,11 +30,6 @@ const mainNavItems = [
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
-  },
-  {
-    title: "Recordings",
-    url: "/recordings",
-    icon: Video,
   },
   {
     title: "SOPs",

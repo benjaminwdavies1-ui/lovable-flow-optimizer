@@ -1,82 +1,78 @@
 
+## Fix Screen Recording to Capture Screenshots on Clicks
 
-## Restructure Insights into Dashboard + 3 Sub-Pages
+### The Problem
 
-### Overview
+The "Screen Capture" button on the Create SOP page (`/sops/new`) currently only opens the browser's screen picker and shows a toast. It does NOT:
+- Actually record the screen stream
+- Capture screenshot frames when the user clicks
+- Save those frames as SOP steps
+- Create a recording in the database
 
-The current Insights page is a single long page. This plan restructures it into a proper navigation layout with 4 views:
+### The Solution
 
-1. **Overview Dashboard** (`/insights`) -- Stats cards, daily activity clusters, quick summaries
-2. **Process Maps** (`/insights/process-maps`) -- Browse all SOPs as interactive flowcharts
-3. **Business Knowledge** (`/insights/knowledge`) -- AI-detected patterns, rules, and optimization insights
-4. **Automation Recommendations** (`/insights/automations`) -- Merges the current standalone Automations page into Insights
+Build a proper screen recording flow using the browser's `getDisplayMedia` API that captures a screenshot frame from the video stream every time the user clicks during recording.
 
-The AI analysis is already connected via Lovable AI through the existing backend functions (`analyze-business-context`, `suggest-automations`, `segment-processes`). No new backend work is needed -- we just need to reorganize the frontend.
+### How It Will Work
 
-### Changes
+1. User clicks "Screen Capture" -- browser shows the screen/window picker
+2. A floating recording toolbar appears at the bottom of the screen with a timer, step count, and Stop button
+3. The video stream plays in a hidden `<video>` element
+4. Every time the user clicks anywhere on the shared screen/window, the system:
+   - Draws the current video frame onto a hidden `<canvas>`
+   - Converts it to a PNG data URL
+   - Creates a new SOP step with the screenshot and auto-generated instruction text
+5. When the user clicks "Stop Recording" (or stops sharing via the browser UI), the recording ends and all captured steps populate the SOP editor below
 
-#### 1. Update Sidebar Navigation
+### Technical Changes
 
-- Move "Insights" from "Coming Soon" to the main nav group
-- Add sub-items under Insights: Overview, Process Maps, Knowledge, Automations
-- Remove the standalone "Automations" entry
-- Use collapsible sub-menu or flat links with indentation
+#### 1. Create `src/hooks/useScreenRecording.ts`
 
-#### 2. Create Sub-Page Components
+A new hook that manages the full screen recording lifecycle:
+- Calls `navigator.mediaDevices.getDisplayMedia()` directly in the click handler (required by browser security)
+- Stores the `MediaStream` in a ref
+- Renders stream to a hidden `<video>` element
+- Listens for `mousedown` events on the document during recording
+- On each click, captures the current video frame via `<canvas>.drawImage(video)`
+- Tracks recording state: `idle`, `recording`, `stopped`
+- Returns: `startRecording()`, `stopRecording()`, `isRecording`, `capturedSteps[]`, `elapsedTime`
 
-**`src/pages/insights/InsightsOverview.tsx`**
-- Stats grid (SOPs count, avg steps, today's events, warnings)
-- Daily Activity section with process cluster detection (the "Run Segmentation" feature)
-- A small preview of latest process map and recent recommendations
-- "Analyze" button that triggers the `analyze-business-context` function
+#### 2. Update `src/pages/SOPNew.tsx`
 
-**`src/pages/insights/ProcessMaps.tsx`**
-- List all user SOPs with a selector dropdown
-- Render the selected SOP's steps as an interactive process map (using existing `ProcessMap` component)
-- Show decision tree branches where applicable
+- Import and use the new `useScreenRecording` hook
+- Wire the "Screen Capture" button to `startRecording()`
+- Show a floating recording indicator bar when recording is active (red dot, timer, step count, stop button)
+- When recording stops, auto-populate the SOP steps list with the captured screenshots and instructions
+- Each captured step shows its screenshot thumbnail, order number, and editable title/description
+- Optionally save the recording + steps to the database via `recordingService`
 
-**`src/pages/insights/BusinessKnowledge.tsx`**
-- Full view of all business context entries (patterns, rules, insights)
-- Filter by context type (pattern / rule / insight)
-- "Run Analysis" button to trigger the `analyze-business-context` function
-- Shows the AI recommendations panel (InsightsPanel) alongside
+#### 3. Create `src/components/recording/RecordingToolbar.tsx`
 
-**`src/pages/insights/AutomationRecommendations.tsx`**
-- Migrated content from the current `Automations.tsx` page
-- SOP selector + automation suggestions panel
-- Stats for total/implemented/pending suggestions
+A floating toolbar component shown during active recording:
+- Fixed position at bottom center of screen
+- Shows: red pulsing dot, elapsed time, step count, "Stop Recording" button
+- Semi-transparent dark background so it doesn't obstruct the view
 
-#### 3. Update Routing in `App.tsx`
+### What Users Will See
 
-- Add routes for `/insights`, `/insights/process-maps`, `/insights/knowledge`, `/insights/automations`
-- Remove the `/automations` route (or redirect it to `/insights/automations`)
+1. Click "Screen Capture" on the Create SOP page
+2. Browser asks which screen/window/tab to share
+3. A floating bar appears: "Recording... 00:32 | 5 steps captured | [Stop]"
+4. Every click automatically captures a screenshot frame from the shared screen
+5. Clicking Stop populates the SOP with all captured steps + screenshots
+6. User can edit titles, descriptions, reorder, and publish
 
-#### 4. Create Insights Layout with Tab Navigation
+### Files Changed
 
-**`src/pages/insights/InsightsLayout.tsx`**
-- Shared layout wrapper with a horizontal tab bar at the top
-- Tabs: Overview | Process Maps | Business Knowledge | Automations
-- Each tab links to its sub-route
-- Active tab highlighted based on current path
+| File | Action |
+|------|--------|
+| `src/hooks/useScreenRecording.ts` | Create -- core recording logic |
+| `src/components/recording/RecordingToolbar.tsx` | Create -- floating UI during recording |
+| `src/pages/SOPNew.tsx` | Update -- wire up recording flow and populate steps |
 
-#### 5. Clean Up
+### Notes
 
-- Remove `src/pages/Automations.tsx` (content moved into the new sub-page)
-- Update `src/pages/Insights.tsx` to become a simple redirect/wrapper to the new layout
-- Remove "Automations" from sidebar `futureNavItems`
-
-### Technical Details
-
-- Tab navigation uses `react-router-dom`'s `useLocation` to determine active tab and `Link` components for navigation
-- All existing queries, mutations, and edge function calls remain unchanged
-- The `InsightsPanel`, `BusinessContextCard`, `RecommendationCard`, `AutomationSuggestionsPanel`, and `ProcessMap` components are reused as-is
-- No database changes needed
+- No database schema changes needed -- the existing `recordings` and `steps` tables already support this
 - No new backend functions needed
-
-### Implementation Order
-
-1. Create `InsightsLayout.tsx` with tab navigation
-2. Create the 4 sub-page components by extracting sections from existing `Insights.tsx` and `Automations.tsx`
-3. Update `App.tsx` routing
-4. Update `AppSidebar.tsx` navigation structure
-5. Delete old `Automations.tsx`
+- Screenshots are captured as data URLs in memory; they can be uploaded to storage when the SOP is saved
+- The `getDisplayMedia` call is made directly in the button's `onClick` handler to satisfy browser security requirements

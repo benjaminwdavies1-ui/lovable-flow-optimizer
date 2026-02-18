@@ -1,78 +1,64 @@
 
-## Fix Screen Recording to Capture Screenshots on Clicks
+## Populate the Platform with Realistic Demo Data
 
-### The Problem
+### Goal
 
-The "Screen Capture" button on the Create SOP page (`/sops/new`) currently only opens the browser's screen picker and shows a toast. It does NOT:
-- Actually record the screen stream
-- Capture screenshot frames when the user clicks
-- Save those frames as SOP steps
-- Create a recording in the database
+Seed the database with realistic, professional SOPs, steps, recordings, knowledge base entries, and automation suggestions — all tied to the existing user account (`benjaminwdavies1@gmail.com`) — so the dashboard, SOP library, knowledge base, and insights panels all display rich, meaningful data.
 
-### The Solution
+### What Will Be Created
 
-Build a proper screen recording flow using the browser's `getDisplayMedia` API that captures a screenshot frame from the video stream every time the user clicks during recording.
+#### 5 SOPs (mix of Published + Draft)
 
-### How It Will Work
+| # | Title | Status | Dept | Employees | Tools | Steps |
+|---|-------|--------|------|-----------|-------|-------|
+| 1 | Onboarding a New Employee | Published | HR | HR Team | Slack, Google Workspace, BambooHR | 7 |
+| 2 | Processing a Customer Refund | Published | Customer Success | Support Team | Stripe, Zendesk, Salesforce | 6 |
+| 3 | Publishing a Blog Post | Published | Marketing | Content Team | WordPress, Grammarly, Canva | 5 |
+| 4 | Deploying a Hotfix to Production | Draft | Engineering | Dev Team | GitHub, Jira, Datadog | 8 |
+| 5 | Monthly Expense Report Submission | Draft | Finance | All Staff | Xero, Expensify | 5 |
 
-1. User clicks "Screen Capture" -- browser shows the screen/window picker
-2. A floating recording toolbar appears at the bottom of the screen with a timer, step count, and Stop button
-3. The video stream plays in a hidden `<video>` element
-4. Every time the user clicks anywhere on the shared screen/window, the system:
-   - Draws the current video frame onto a hidden `<canvas>`
-   - Converts it to a PNG data URL
-   - Creates a new SOP step with the screenshot and auto-generated instruction text
-5. When the user clicks "Stop Recording" (or stops sharing via the browser UI), the recording ends and all captured steps populate the SOP editor below
+Each SOP gets realistic step titles, detailed descriptions, and some steps will have warnings flagged (e.g. "Do not skip manager approval").
 
-### Technical Changes
+#### 2 Recordings (raw captures, unconverted)
 
-#### 1. Create `src/hooks/useScreenRecording.ts`
+- "Stripe Refund Walkthrough" — 6 steps, in_progress
+- "GitHub PR Merge Process" — 5 steps, completed
 
-A new hook that manages the full screen recording lifecycle:
-- Calls `navigator.mediaDevices.getDisplayMedia()` directly in the click handler (required by browser security)
-- Stores the `MediaStream` in a ref
-- Renders stream to a hidden `<video>` element
-- Listens for `mousedown` events on the document during recording
-- On each click, captures the current video frame via `<canvas>.drawImage(video)`
-- Tracks recording state: `idle`, `recording`, `stopped`
-- Returns: `startRecording()`, `stopRecording()`, `isRecording`, `capturedSteps[]`, `elapsedTime`
+#### 8 Knowledge Base Entries
 
-#### 2. Update `src/pages/SOPNew.tsx`
+- **Software**: How we use Salesforce, Slack communication guidelines, Our Stripe billing setup
+- **Process**: Monthly reporting cycle, Incident response procedure
+- **General**: Company values and how they apply to ops, Team timezone overview
+- **Tips**: Zendesk ticket triage tips
 
-- Import and use the new `useScreenRecording` hook
-- Wire the "Screen Capture" button to `startRecording()`
-- Show a floating recording indicator bar when recording is active (red dot, timer, step count, stop button)
-- When recording stops, auto-populate the SOP steps list with the captured screenshots and instructions
-- Each captured step shows its screenshot thumbnail, order number, and editable title/description
-- Optionally save the recording + steps to the database via `recordingService`
+#### 4 Automation Suggestions
 
-#### 3. Create `src/components/recording/RecordingToolbar.tsx`
+- Auto-send welcome email when new employee is onboarded (via Slack + BambooHR)
+- Auto-create Zendesk ticket from Stripe refund trigger
+- Auto-post blog to social media after WordPress publish
+- Weekly Expensify reminder via Slack
 
-A floating toolbar component shown during active recording:
-- Fixed position at bottom center of screen
-- Shows: red pulsing dot, elapsed time, step count, "Stop Recording" button
-- Semi-transparent dark background so it doesn't obstruct the view
+### Technical Approach
 
-### What Users Will See
+All data will be inserted using a single SQL migration executed via the database migration tool. Since the data must be scoped to the real user ID (`bbc28270-a944-4015-96c4-47cd33408edd`), and RLS is active, the inserts will use that user_id directly — which is valid in a migration run with service-role access.
 
-1. Click "Screen Capture" on the Create SOP page
-2. Browser asks which screen/window/tab to share
-3. A floating bar appears: "Recording... 00:32 | 5 steps captured | [Stop]"
-4. Every click automatically captures a screenshot frame from the shared screen
-5. Clicking Stop populates the SOP with all captured steps + screenshots
-6. User can edit titles, descriptions, reorder, and publish
+The migration will:
+1. Insert 2 recordings
+2. Insert steps for each recording
+3. Insert 5 SOPs with all tags
+4. Insert all SOP steps with realistic descriptions (some with warnings)
+5. Insert 8 knowledge_entries
+6. Insert 4 automation_suggestions
 
-### Files Changed
+### No Code Changes Required
 
-| File | Action |
-|------|--------|
-| `src/hooks/useScreenRecording.ts` | Create -- core recording logic |
-| `src/components/recording/RecordingToolbar.tsx` | Create -- floating UI during recording |
-| `src/pages/SOPNew.tsx` | Update -- wire up recording flow and populate steps |
+This is purely a data seeding operation. No React components, hooks, or edge functions need to change — the existing UI is already built to display all of this data correctly.
 
-### Notes
+### What You'll See After
 
-- No database schema changes needed -- the existing `recordings` and `steps` tables already support this
-- No new backend functions needed
-- Screenshots are captured as data URLs in memory; they can be uploaded to storage when the SOP is saved
-- The `getDisplayMedia` call is made directly in the button's `onClick` handler to satisfy browser security requirements
+- **Dashboard**: "SOPs Created: 5", "Avg. Steps per SOP: 6", recent SOPs listed with status badges
+- **SOPs page**: Full table with all 5 SOPs, tags, version numbers, step counts, and status
+- **SOP View**: Click any SOP to see a full step-by-step procedure with warnings, departments, employees, and tools
+- **Knowledge Base**: 8 cards across all 4 categories with tags and searchable content
+- **Insights Overview**: Stats cards showing 5 SOPs, 3 published, avg 6 steps, warnings flagged
+- **Automation Recommendations**: 4 AI-generated suggestions with difficulty ratings and estimated time saved

@@ -306,7 +306,7 @@ export function SidebarApp() {
   const convertToSOP = async () => {
     await saveRecording();
     if (cloudRecordingId && isAuthenticated) {
-      chrome.tabs.create({ url: `${window.location.origin}/recordings` });
+      chrome.tabs.create({ url: `${window.location.origin}/sops` });
     } else {
       alert("Log in to convert recordings to SOPs in the web app.");
     }

@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { DecisionBranchEditor, type BranchStep } from "@/components/sop/DecisionBranchEditor";
 import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { RecordingToolbar } from "@/components/recording/RecordingToolbar";
+import { createSOP, createSOPStep } from "@/services/sopService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SOPStep {
   id: string;
@@ -44,6 +46,7 @@ interface SOPStep {
 
 export default function SOPNew() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState<SOPStep[]>([]);
@@ -127,11 +130,41 @@ export default function SOPNew() {
     );
   }, []);
 
+  const saveStepsForSop = async (sopId: string) => {
+    for (const step of steps) {
+      await createSOPStep({
+        sop_id: sopId,
+        order_number: step.orderNumber,
+        title: step.title,
+        description: step.description,
+        screenshot_url: step.screenshotUrl,
+        show_screenshot: step.showScreenshot,
+        has_warning: step.hasWarning,
+        warning_text: step.warningText,
+        is_redacted: step.isRedacted,
+        is_decision: step.isDecision,
+        decision_mode: step.decisionMode,
+        yes_branch_steps: step.yesBranchSteps as unknown as import("@/integrations/supabase/types").Json,
+        no_branch_steps: step.noBranchSteps as unknown as import("@/integrations/supabase/types").Json,
+      });
+    }
+  };
+
   const handleSaveDraft = async () => {
     if (!title.trim()) {
       toast.error("Please enter a title for your SOP.");
       return;
     }
+    if (!user) {
+      toast.error("You must be logged in to save an SOP.");
+      return;
+    }
+    const sop = await createSOP(title, description, user.id);
+    if (!sop) {
+      toast.error("Failed to save SOP. Please try again.");
+      return;
+    }
+    await saveStepsForSop(sop.id);
     toast.success("SOP saved as draft!");
     navigate("/sops");
   };
@@ -145,6 +178,18 @@ export default function SOPNew() {
       toast.error("Please add at least one step before publishing.");
       return;
     }
+    if (!user) {
+      toast.error("You must be logged in to publish an SOP.");
+      return;
+    }
+    const sop = await createSOP(title, description, user.id);
+    if (!sop) {
+      toast.error("Failed to publish SOP. Please try again.");
+      return;
+    }
+    await saveStepsForSop(sop.id);
+    const { updateSOP } = await import("@/services/sopService");
+    await updateSOP(sop.id, { status: "published", published_at: new Date().toISOString() });
     toast.success("SOP published successfully!");
     navigate("/sops");
   };

@@ -1,4 +1,4 @@
-@import 'geist/dist/geist-sans.css';
+@import 'geist/styles';
 
 @tailwind base;
 @tailwind components;

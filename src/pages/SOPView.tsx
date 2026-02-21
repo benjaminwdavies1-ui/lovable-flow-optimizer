@@ -99,7 +99,7 @@ export default function SOPView() {
             The SOP you're looking for doesn't exist or has been deleted.
           </p>
           <Button asChild>
-            <Link to="/sops">
+            <Link to="/app/sops">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to SOPs
             </Link>
@@ -116,13 +116,13 @@ export default function SOPView() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
-            <Link to="/sops">
+            <Link to="/app/sops">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to SOPs
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to={`/sops/${id}/edit`}>
+            <Link to={`/app/sops/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </Link>

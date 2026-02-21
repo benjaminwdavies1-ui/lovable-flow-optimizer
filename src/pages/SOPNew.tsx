@@ -166,7 +166,7 @@ export default function SOPNew() {
     }
     await saveStepsForSop(sop.id);
     toast.success("SOP saved as draft!");
-    navigate("/sops");
+    navigate("/app/sops");
   };
 
   const handlePublish = async () => {
@@ -191,7 +191,7 @@ export default function SOPNew() {
     const { updateSOP } = await import("@/services/sopService");
     await updateSOP(sop.id, { status: "published", published_at: new Date().toISOString() });
     toast.success("SOP published successfully!");
-    navigate("/sops");
+    navigate("/app/sops");
   };
 
   return (
@@ -200,7 +200,7 @@ export default function SOPNew() {
       description="Build a new standard operating procedure"
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate("/sops")}>
+          <Button variant="outline" onClick={() => navigate("/app/sops")}>
             Cancel
           </Button>
           <Button variant="outline" onClick={handleSaveDraft}>

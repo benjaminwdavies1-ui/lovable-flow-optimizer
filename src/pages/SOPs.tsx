@@ -94,7 +94,7 @@ export default function SOPs() {
       description="Your standard operating procedures library"
       actions={
         <Button asChild>
-          <Link to="/sops/new">
+          <Link to="/app/sops/new">
             <Plus className="mr-2 h-4 w-4" />
             Create SOP
           </Link>
@@ -124,7 +124,7 @@ export default function SOPs() {
                 Create your first SOP or convert a recording
               </p>
               <Button asChild>
-                <Link to="/sops/new">
+                <Link to="/app/sops/new">
                   <Plus className="mr-2 h-4 w-4" />
                   Create SOP
                 </Link>
@@ -182,13 +182,13 @@ export default function SOPs() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link to={`/sops/${sop.id}`}>
+                              <Link to={`/app/sops/${sop.id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                              <Link to={`/sops/${sop.id}/edit`}>
+                              <Link to={`/app/sops/${sop.id}/edit`}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </Link>

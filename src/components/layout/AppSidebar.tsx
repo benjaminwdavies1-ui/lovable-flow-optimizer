@@ -54,22 +54,28 @@ export function AppSidebar() {
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
-  const isInsightsActive = location.pathname.startsWith("/app/insights");
+  const navItemClass = (active: boolean) =>
+    cn(
+      "w-full justify-start gap-3 h-9 rounded-none px-3 text-sm font-medium transition-colors border-l-2",
+      active
+        ? "border-l-primary bg-sidebar-accent text-sidebar-accent-foreground"
+        : "border-l-transparent text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+    );
 
   return (
     <Sidebar className="border-r-0">
-      <SidebarHeader className="px-4 py-6">
+      <SidebarHeader className="px-4 py-4">
         <Link to="/app" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Zap className="h-4 w-4" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <Zap className="h-3.5 w-3.5" />
           </div>
-          <span className="text-lg font-semibold text-sidebar-foreground">Opstrace</span>
+          <span className="text-base font-semibold text-sidebar-foreground tracking-tight">Opstrace</span>
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-0">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">Main</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-4 text-2xs font-medium uppercase tracking-widest text-sidebar-muted">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
@@ -77,12 +83,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className={cn(
-                      "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                      location.pathname === item.url
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
+                    className={navItemClass(location.pathname === item.url)}
                   >
                     <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -95,10 +96,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator className="my-4 bg-sidebar-border" />
+        <SidebarSeparator className="my-2 bg-sidebar-border" />
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium uppercase tracking-wider text-sidebar-muted">Insights</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-4 text-2xs font-medium uppercase tracking-widest text-sidebar-muted">Insights</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {insightsNavItems.map((item) => (
@@ -106,12 +107,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={isActive(item.url, item.exact)}
-                    className={cn(
-                      "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                      isActive(item.url, item.exact)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
+                    className={navItemClass(isActive(item.url, item.exact))}
                   >
                     <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -125,11 +121,11 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="px-2 pb-4">
-        <SidebarSeparator className="mb-4 bg-sidebar-border" />
-        <div className="mb-2 flex items-center gap-3 rounded-lg px-3 py-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-xs">{userInitials}</AvatarFallback>
+      <SidebarFooter className="px-0 pb-3">
+        <SidebarSeparator className="mb-2 bg-sidebar-border" />
+        <div className="mb-1 flex items-center gap-3 px-4 py-1.5">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-2xs">{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
             <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
@@ -140,12 +136,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               asChild
               isActive={location.pathname === "/app/settings"}
-              className={cn(
-                "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                location.pathname === "/app/settings"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )}
+              className={navItemClass(location.pathname === "/app/settings")}
             >
               <Link to="/app/settings">
                 <Settings className="h-4 w-4" />
@@ -156,7 +147,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={signOut}
-              className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="w-full justify-start gap-3 h-9 rounded-none px-3 text-sm font-medium text-sidebar-foreground transition-colors border-l-2 border-l-transparent hover:bg-destructive/10 hover:text-destructive"
             >
               <LogOut className="h-4 w-4" />
               <span>Sign out</span>

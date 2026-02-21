@@ -70,6 +70,19 @@
     /* Recording state */
     --recording: 0 84% 60%;
     --recording-foreground: 0 0% 100%;
+
+    /* Landing page warm palette */
+    --landing-bg: 30 40% 98%;
+    --landing-hero-from: 25 80% 96%;
+    --landing-hero-to: 35 60% 94%;
+    --landing-accent: 25 95% 53%;
+    --landing-accent-hover: 25 95% 46%;
+    --landing-accent-foreground: 0 0% 100%;
+    --landing-accent-soft: 25 90% 95%;
+    --landing-text: 25 30% 15%;
+    --landing-text-muted: 25 10% 45%;
+    --landing-card: 0 0% 100%;
+    --landing-border: 30 25% 90%;
   }
 
   .dark {

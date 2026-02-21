@@ -28,16 +28,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const mainNavItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "SOPs", url: "/sops", icon: FileText },
-  { title: "Knowledge Base", url: "/knowledge", icon: BookOpen },
+  { title: "Dashboard", url: "/app", icon: LayoutDashboard },
+  { title: "SOPs", url: "/app/sops", icon: FileText },
+  { title: "Knowledge Base", url: "/app/knowledge", icon: BookOpen },
 ];
 
 const insightsNavItems = [
-  { title: "Overview", url: "/insights", icon: BarChart3, exact: true },
-  { title: "Process Maps", url: "/insights/process-maps", icon: Map },
-  { title: "Business Knowledge", url: "/insights/knowledge", icon: Brain },
-  { title: "Automations", url: "/insights/automations", icon: Zap },
+  { title: "Overview", url: "/app/insights", icon: BarChart3, exact: true },
+  { title: "Process Maps", url: "/app/insights/process-maps", icon: Map },
+  { title: "Business Knowledge", url: "/app/insights/knowledge", icon: Brain },
+  { title: "Automations", url: "/app/insights/automations", icon: Zap },
 ];
 
 export function AppSidebar() {
@@ -54,12 +54,12 @@ export function AppSidebar() {
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
-  const isInsightsActive = location.pathname.startsWith("/insights");
+  const isInsightsActive = location.pathname.startsWith("/app/insights");
 
   return (
     <Sidebar className="border-r-0">
       <SidebarHeader className="px-4 py-6">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/app" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Zap className="h-4 w-4" />
           </div>
@@ -139,15 +139,15 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              isActive={location.pathname === "/settings"}
+              isActive={location.pathname === "/app/settings"}
               className={cn(
                 "w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                location.pathname === "/settings"
+                location.pathname === "/app/settings"
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <Link to="/settings">
+              <Link to="/app/settings">
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </Link>

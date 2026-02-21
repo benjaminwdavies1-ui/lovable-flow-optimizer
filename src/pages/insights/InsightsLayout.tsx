@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 import { BarChart3, Map, Brain, Zap } from "lucide-react";
 
 const tabs = [
-  { label: "Overview", path: "/insights", icon: BarChart3, exact: true },
-  { label: "Process Maps", path: "/insights/process-maps", icon: Map },
-  { label: "Business Knowledge", path: "/insights/knowledge", icon: Brain },
-  { label: "Automations", path: "/insights/automations", icon: Zap },
+  { label: "Overview", path: "/app/insights", icon: BarChart3, exact: true },
+  { label: "Process Maps", path: "/app/insights/process-maps", icon: Map },
+  { label: "Business Knowledge", path: "/app/insights/knowledge", icon: Brain },
+  { label: "Automations", path: "/app/insights/automations", icon: Zap },
 ];
 
 export default function InsightsLayout() {

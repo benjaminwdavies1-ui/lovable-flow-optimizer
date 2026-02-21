@@ -39,7 +39,7 @@ export function RecentSOPs({ sops }: RecentSOPsProps) {
           <CardDescription>Your standard operating procedures</CardDescription>
         </div>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/sops" className="gap-1">
+          <Link to="/app/sops" className="gap-1">
             View all
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -59,7 +59,7 @@ export function RecentSOPs({ sops }: RecentSOPsProps) {
               return (
                 <Link
                   key={sop.id}
-                  to={`/sops/${sop.id}`}
+                  to={`/app/sops/${sop.id}`}
                   className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex items-center gap-3">

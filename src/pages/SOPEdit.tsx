@@ -202,7 +202,7 @@ export default function SOPEdit() {
     >
       <div className="space-y-6">
         <Button variant="ghost" asChild className="pl-0">
-          <Link to="/sops">
+          <Link to="/app/sops">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to SOPs
           </Link>

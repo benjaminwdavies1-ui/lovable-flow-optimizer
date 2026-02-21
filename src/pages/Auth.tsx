@@ -12,7 +12,7 @@ export default function Auth() {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      navigate("/", { replace: true });
+      navigate("/app", { replace: true });
     }
   }, [user, loading, navigate]);
 

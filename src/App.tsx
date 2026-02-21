@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { AIAssistant } from "@/components/ai/AIAssistant";
+import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import SOPs from "./pages/SOPs";
 import SOPNew from "./pages/SOPNew";
@@ -32,28 +33,34 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Public */}
+            <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
-            
-            <Route path="/" element={<AuthGuard><Dashboard /></AuthGuard>} />
-            <Route path="/sops" element={<AuthGuard><SOPs /></AuthGuard>} />
-            <Route path="/sops/new" element={<AuthGuard><SOPNew /></AuthGuard>} />
-            <Route path="/sops/:id" element={<AuthGuard><SOPView /></AuthGuard>} />
-            <Route path="/sops/:id/edit" element={<AuthGuard><SOPEdit /></AuthGuard>} />
-            <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
-            <Route path="/knowledge" element={<AuthGuard><KnowledgeBase /></AuthGuard>} />
-            
-            {/* Insights with sub-routes */}
-            <Route path="/insights" element={<AuthGuard><InsightsLayout /></AuthGuard>}>
+
+            {/* Authenticated app routes */}
+            <Route path="/app" element={<AuthGuard><Dashboard /></AuthGuard>} />
+            <Route path="/app/sops" element={<AuthGuard><SOPs /></AuthGuard>} />
+            <Route path="/app/sops/new" element={<AuthGuard><SOPNew /></AuthGuard>} />
+            <Route path="/app/sops/:id" element={<AuthGuard><SOPView /></AuthGuard>} />
+            <Route path="/app/sops/:id/edit" element={<AuthGuard><SOPEdit /></AuthGuard>} />
+            <Route path="/app/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            <Route path="/app/knowledge" element={<AuthGuard><KnowledgeBase /></AuthGuard>} />
+
+            <Route path="/app/insights" element={<AuthGuard><InsightsLayout /></AuthGuard>}>
               <Route index element={<InsightsOverview />} />
               <Route path="process-maps" element={<ProcessMaps />} />
               <Route path="knowledge" element={<BusinessKnowledge />} />
               <Route path="automations" element={<AutomationRecommendations />} />
             </Route>
 
-            {/* Redirect old automations route */}
-            <Route path="/automations" element={<Navigate to="/insights/automations" replace />} />
-            
+            {/* Legacy redirects */}
+            <Route path="/sops" element={<Navigate to="/app/sops" replace />} />
+            <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+            <Route path="/insights/*" element={<Navigate to="/app/insights" replace />} />
+            <Route path="/automations" element={<Navigate to="/app/insights/automations" replace />} />
+            <Route path="/knowledge" element={<Navigate to="/app/knowledge" replace />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AIAssistant />

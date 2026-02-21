@@ -1,64 +1,72 @@
 
-## Populate the Platform with Realistic Demo Data
+# Public Landing Page with Email Collection
 
-### Goal
+## Overview
+Create a public-facing landing page at the root URL (`/`) that showcases Opstrace and lets visitors submit their email to join a waitlist. All existing app routes remain behind authentication but are moved under a `/app` prefix.
 
-Seed the database with realistic, professional SOPs, steps, recordings, knowledge base entries, and automation suggestions — all tied to the existing user account (`benjaminwdavies1@gmail.com`) — so the dashboard, SOP library, knowledge base, and insights panels all display rich, meaningful data.
+## What You'll Get
+- A clean, professional landing page describing Opstrace
+- An email signup form where visitors can submit their email
+- Emails stored securely in the database
+- A success message after submission
+- All existing app functionality untouched, just moved to `/app/*`
 
-### What Will Be Created
+## How It Works
 
-#### 5 SOPs (mix of Published + Draft)
+1. **New database table** -- `waitlist_emails` to store submitted emails (with duplicate prevention)
+2. **New landing page** -- `src/pages/Landing.tsx` with:
+   - Hero section with tagline ("Capture workflows. Generate SOPs.")
+   - Brief feature highlights (Record, Generate, Automate)
+   - Email input + "Join the Waitlist" button
+   - Success/error feedback via toast
+3. **Updated routing** in `App.tsx`:
+   - `/` renders the public Landing page (no auth required)
+   - `/auth` remains public
+   - All authenticated routes move to `/app`, `/app/sops`, `/app/settings`, etc.
+   - Dashboard becomes `/app` instead of `/`
+4. **Sidebar and nav links** updated to use `/app/*` paths
 
-| # | Title | Status | Dept | Employees | Tools | Steps |
-|---|-------|--------|------|-----------|-------|-------|
-| 1 | Onboarding a New Employee | Published | HR | HR Team | Slack, Google Workspace, BambooHR | 7 |
-| 2 | Processing a Customer Refund | Published | Customer Success | Support Team | Stripe, Zendesk, Salesforce | 6 |
-| 3 | Publishing a Blog Post | Published | Marketing | Content Team | WordPress, Grammarly, Canva | 5 |
-| 4 | Deploying a Hotfix to Production | Draft | Engineering | Dev Team | GitHub, Jira, Datadog | 8 |
-| 5 | Monthly Expense Report Submission | Draft | Finance | All Staff | Xero, Expensify | 5 |
+## Technical Details
 
-Each SOP gets realistic step titles, detailed descriptions, and some steps will have warnings flagged (e.g. "Do not skip manager approval").
+### Database Migration
+```sql
+CREATE TABLE public.waitlist_emails (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
-#### 2 Recordings (raw captures, unconverted)
+ALTER TABLE public.waitlist_emails ENABLE ROW LEVEL SECURITY;
 
-- "Stripe Refund Walkthrough" — 6 steps, in_progress
-- "GitHub PR Merge Process" — 5 steps, completed
+-- Allow anyone (anonymous) to insert
+CREATE POLICY "Anyone can submit email"
+  ON public.waitlist_emails FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
 
-#### 8 Knowledge Base Entries
+-- Only authenticated users (admins) can view
+CREATE POLICY "Authenticated users can view waitlist"
+  ON public.waitlist_emails FOR SELECT
+  TO authenticated
+  USING (true);
+```
 
-- **Software**: How we use Salesforce, Slack communication guidelines, Our Stripe billing setup
-- **Process**: Monthly reporting cycle, Incident response procedure
-- **General**: Company values and how they apply to ops, Team timezone overview
-- **Tips**: Zendesk ticket triage tips
+### Files to Create
+- `src/pages/Landing.tsx` -- Landing page with hero, features, and email form
 
-#### 4 Automation Suggestions
+### Files to Modify
+- `src/App.tsx` -- Add Landing route at `/`, prefix all auth-guarded routes with `/app`
+- `src/components/layout/AppSidebar.tsx` -- Update nav links to `/app/*`
+- `src/components/auth/AuthGuard.tsx` -- Redirect to `/auth` (unchanged behavior, just confirming)
+- `src/contexts/AuthContext.tsx` -- Update redirect after login to `/app`
+- `src/pages/Auth.tsx` -- Navigate to `/app` after login instead of `/`
+- `src/components/ai/AIAssistant.tsx` -- Update any internal navigation references
+- Any other components with hardcoded route references (NavLink, sidebar, etc.)
 
-- Auto-send welcome email when new employee is onboarded (via Slack + BambooHR)
-- Auto-create Zendesk ticket from Stripe refund trigger
-- Auto-post blog to social media after WordPress publish
-- Weekly Expensify reminder via Slack
-
-### Technical Approach
-
-All data will be inserted using a single SQL migration executed via the database migration tool. Since the data must be scoped to the real user ID (`bbc28270-a944-4015-96c4-47cd33408edd`), and RLS is active, the inserts will use that user_id directly — which is valid in a migration run with service-role access.
-
-The migration will:
-1. Insert 2 recordings
-2. Insert steps for each recording
-3. Insert 5 SOPs with all tags
-4. Insert all SOP steps with realistic descriptions (some with warnings)
-5. Insert 8 knowledge_entries
-6. Insert 4 automation_suggestions
-
-### No Code Changes Required
-
-This is purely a data seeding operation. No React components, hooks, or edge functions need to change — the existing UI is already built to display all of this data correctly.
-
-### What You'll See After
-
-- **Dashboard**: "SOPs Created: 5", "Avg. Steps per SOP: 6", recent SOPs listed with status badges
-- **SOPs page**: Full table with all 5 SOPs, tags, version numbers, step counts, and status
-- **SOP View**: Click any SOP to see a full step-by-step procedure with warnings, departments, employees, and tools
-- **Knowledge Base**: 8 cards across all 4 categories with tags and searchable content
-- **Insights Overview**: Stats cards showing 5 SOPs, 3 published, avg 6 steps, warnings flagged
-- **Automation Recommendations**: 4 AI-generated suggestions with difficulty ratings and estimated time saved
+### Landing Page Design
+- Uses existing Tailwind design tokens (primary blue, neutral backgrounds)
+- Responsive layout, mobile-friendly
+- Simple email input with zod validation
+- Inserts directly into `waitlist_emails` via the client SDK (anon insert policy)
+- Shows toast on success: "You're on the list!"
+- Prevents duplicate submissions gracefully
